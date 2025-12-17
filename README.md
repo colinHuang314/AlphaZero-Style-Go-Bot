@@ -20,6 +20,6 @@ https://arxiv.org/pdf/1712.01815
 
 https://www.youtube.com/watch?v=0slFo1rV0EM
 
-https://www.youtube.com/watch?v=UzYeqAJ2bA8
-
 https://www.youtube.com/watch?v=wuSQpLinRB4
+
+https://www.youtube.com/watch?v=UzYeqAJ2bA8
