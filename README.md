@@ -110,6 +110,9 @@ I started this project because of my interest in Go and my interest in game-play
   - Replay buffer imbalance (too many of one player winning)
 
 </details>
+
+---
+
 <details> <summary><strong>📉 Lessons Learned</strong></summary>
   
 - AlphaZero-style systems are sensitive to:
@@ -124,6 +127,9 @@ I started this project because of my interest in Go and my interest in game-play
 **Despite these limitations, the system clearly demonstrates non-trivial learning behavior.**
 
 </details>
+
+---
+
 <details> <summary><strong>🚀 Potential Future Work</strong></summary>
   
 - Multithreaded or parallel self-play
@@ -135,6 +141,8 @@ I started this project because of my interest in Go and my interest in game-play
 - Improved replay buffer sampling
 
 </details>
+
+---
 
 # References
 AlphaGo Zero
