@@ -9,7 +9,7 @@ I started this project because of my interest in Go and my interest in game-play
 
 ---
 
-## Project Highlights
+## 🌟 Project Highlights
 - AlphaZero-style **policy + value network**
 - Full **self-play training loop** including evaluation against previous models
 - Neural network–guided MCTS
@@ -22,7 +22,7 @@ I started this project because of my interest in Go and my interest in game-play
 
 ---
 
-## Current Performance
+## 📈 Current Performance
 - Over ~3000 self-play games, the bot has learned incrementally, beating previous models
 - Makes "intelligent" decisions under sufficient MCTS simulations
 - After lots of training, performance seems to have plateaued on both **9×9 and 5x5** boards (2 different models)
@@ -34,7 +34,7 @@ I started this project because of my interest in Go and my interest in game-play
 ---
 
 <details>
-  <summary><strong>Interactive UI Usage</strong></summary>
+  <summary><strong>🫆 Interactive UI Usage</strong></summary>
 
 ## How To Use Interactive UI
 
@@ -89,7 +89,7 @@ A mode for playing full games against the bot.
 ---
 
 <details>
-  <summary><strong>Training Loop Usage</strong></summary>
+  <summary><strong> 🚂 Training Loop Usage</strong></summary>
 
 ## Training Loop Usage
 
@@ -106,7 +106,7 @@ As you train, you will want to tune the parameters depending on how your model p
 ---
 
 <details>
-  <summary><strong>Architecture Overview</strong></summary>
+  <summary><strong>🏗️ Architecture Overview</strong></summary>
 
 ### Neural Network
 - Input planes: **17** (1 for turn, 16 for the past 8 board positions binary encoded by player)
@@ -128,10 +128,10 @@ As you train, you will want to tune the parameters depending on how your model p
 ---
 
 <details>
-  <summary><strong>Training Framework</strong></summary>
+  <summary><strong>🧱 Training Framework</strong></summary>
 
 - **AlphaZero-style self-play**
-  - First. load the last saved model, champion model, and replay buffer
+  - First, load the last saved model, champion model, and replay buffer
   - Then play self-play games, saving every game position, its augmentations (since the board is symmetric), the MCTS visit count distribution, and the winner of the game to the replay buffer
   - Optionally save model
   - Train model on replay buffer data every n self-play games
@@ -156,7 +156,7 @@ As you train, you will want to tune the parameters depending on how your model p
 
 ---
 
-<details> <summary><strong>Observations & Training Issues</strong></summary>
+<details> <summary><strong>🔎 Observations & Training Issues</strong></summary>
   
 ### Issues I've had with training (past or present)
 - Sometimes requires very high MCTS simulations to generate usable data
@@ -185,7 +185,7 @@ As you train, you will want to tune the parameters depending on how your model p
 
 ---
 
-<details> <summary><strong>Lessons Learned</strong></summary>
+<details> <summary><strong>✏️ Lessons Learned</strong></summary>
   
 - AlphaZero-style systems are sensitive to:
   - MCTS simulation count
@@ -202,7 +202,7 @@ As you train, you will want to tune the parameters depending on how your model p
 
 ---
 
-<details> <summary><strong>Potential Future Work</strong></summary>
+<details> <summary><strong>🔮 Potential Future Work</strong></summary>
   
 - Multithreaded or parallel self-play
 - Faster rollout strategies
@@ -216,7 +216,7 @@ As you train, you will want to tune the parameters depending on how your model p
 
 ---
 
-# References
+## 📚 References
 AlphaGo Zero
 https://discovery.ucl.ac.uk/10045895/1/agz_unformatted_nature.pdf
 
