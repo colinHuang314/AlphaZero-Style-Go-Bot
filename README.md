@@ -2,7 +2,7 @@
 
 This project includes:
 - An AlphaZero-style self-play training loop
-- A model for 5x5 and 9x9 that I have trained for about 2 weeks of training time each
+- A model for 9x9 and 5x5 that I have trained for about 2 weeks of training time each
 - An interactive UI that displays live MCTS search statistics and neural network priors of saved models
 
 I started this project because of my interest in Go and my interest in game-playing AIs. I hope to develop more insight as to why the strength of the bots I trained plateaued. Although the bots didn't get to the strength I wanted, the training loop still worked, and the interactive UI looks so cool!
@@ -25,7 +25,7 @@ I started this project because of my interest in Go and my interest in game-play
 ## Current Performance
 - Over ~3000 self-play games, the bot has learned incrementally, beating previous models
 - Makes "intelligent" decisions under sufficient MCTS simulations
-- After lots of training, performance seems to have plateaued on both **5×5 and 9×9** boards (2 different models)
+- After lots of training, performance seems to have plateaued on both **9×9 and 5x5** boards (2 different models)
 - Performance is likely limited by:
   - Compute constraints
   - The complexity of the model or hyperparameter suboptimality
