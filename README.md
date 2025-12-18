@@ -42,46 +42,41 @@ The project includes several interactive modes designed for debugging, analysis,
 
 ---
 
-### Freeplay Mode
+### Freeplay Mode ("sandbox")
 A sandbox Go environment used primarily to verify rule correctness and board logic.
 
 - Just for testing captures, liberties, ko rules, and general game mechanics
 
 ---
 
-### Prior Mode
+### Model policy Mode ("view policy")
 Explore the neural network’s policy priors without running a full MCTS search.
 
 - Visualizes the model priors that guide MCTS and reduce the search space
 - Play moves for **both sides** to observe the bot’s learned “intuition”
-- Helpful for understanding how the network evaluates positions before search
 
 ---
 
-### Live MCTS Mode
+### Live MCTS Mode ("live mcts")
 An interactive testing mode that exposes the full Monte Carlo Tree Search process.
 
 - Play moves suggested by the bot **or** choose your own to test responses
 - Recommended to create custom openings; otherwise the bot may repeat similar games
-- You can play against the bot by:
-  - Choosing a color for yourself
-  - Ignoring bot suggestions for your own moves
-  - Playing the bot’s move with the **highest MCTS visit count** (highlighted in **purple**)
-- The number of simulations per move is fully configurable
+- You could also play against the bot in this mode
 
 **Note:**  
-There may be a bug where closing the window does not terminate the program. If this occurs, use a keyboard interrupt (`Ctrl+C`) or restart the terminal.
+There is no move preview when hovering over the board, and it might be laggy.
 
 ---
 
 ### Play Game Mode
-A simplified mode for playing full games against the bot.
+A mode for playing full games against the bot.
 
 - Customize:
-  - Which color goes first
+  - Which player goes first
   - How long the bot thinks per move
 - Functional but not fully polished
-- The bot does **not** currently resign
+- The bot doesn't resign
 
 </details>
 
