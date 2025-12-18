@@ -34,7 +34,7 @@ I started this project because of my interest in Go and my interest in game-play
 ---
 
 <details>
-  <summary><strong>🧠 Architecture Overview</strong></summary>
+  <summary><strong>Architecture Overview</strong></summary>
 
 ### Neural Network
 - Input planes: **17** (1 for turn, 16 for the past 8 board positions binary encoded by player)
@@ -56,7 +56,7 @@ I started this project because of my interest in Go and my interest in game-play
 ---
 
 <details>
-  <summary><strong>⚙️ Training Framework</strong></summary>
+  <summary><strong>Training Framework</strong></summary>
 
 - **AlphaZero-style self-play**
   - First. load the last saved model, champion model, and replay buffer
@@ -84,7 +84,7 @@ I started this project because of my interest in Go and my interest in game-play
 
 ---
 
-<details> <summary><strong>🧪 Observations & Training Issues</strong></summary>
+<details> <summary><strong>Observations & Training Issues</strong></summary>
   
 ### Issues I've had with training (past or present)
 - Sometimes requires very high MCTS simulations to generate usable data
@@ -113,7 +113,7 @@ I started this project because of my interest in Go and my interest in game-play
 
 ---
 
-<details> <summary><strong>📉 Lessons Learned</strong></summary>
+<details> <summary><strong>Lessons Learned</strong></summary>
   
 - AlphaZero-style systems are sensitive to:
   - MCTS simulation count
@@ -130,7 +130,7 @@ I started this project because of my interest in Go and my interest in game-play
 
 ---
 
-<details> <summary><strong>🚀 Potential Future Work</strong></summary>
+<details> <summary><strong>Potential Future Work</strong></summary>
   
 - Multithreaded or parallel self-play
 - Faster rollout strategies
