@@ -34,6 +34,60 @@ I started this project because of my interest in Go and my interest in game-play
 ---
 
 <details>
+  <summary><strong>Interactive UI Usage</strong></summary>
+
+## How To Use Interactive UI
+
+The project includes several interactive modes designed for debugging, analysis, and experimentation with the AlphaZero-style Go bot.
+
+---
+
+### Freeplay Mode
+A sandbox Go environment used primarily to verify rule correctness and board logic.
+
+- Just for testing captures, liberties, ko rules, and general game mechanics
+
+---
+
+### Prior Mode
+Explore the neural network’s policy priors without running a full MCTS search.
+
+- Visualizes the model priors that guide MCTS and reduce the search space
+- Play moves for **both sides** to observe the bot’s learned “intuition”
+- Helpful for understanding how the network evaluates positions before search
+
+---
+
+### Live MCTS Mode
+An interactive testing mode that exposes the full Monte Carlo Tree Search process.
+
+- Play moves suggested by the bot **or** choose your own to test responses
+- Recommended to create custom openings; otherwise the bot may repeat similar games
+- You can play against the bot by:
+  - Choosing a color for yourself
+  - Ignoring bot suggestions for your own moves
+  - Playing the bot’s move with the **highest MCTS visit count** (highlighted in **purple**)
+- The number of simulations per move is fully configurable
+
+**Note:**  
+There may be a bug where closing the window does not terminate the program. If this occurs, use a keyboard interrupt (`Ctrl+C`) or restart the terminal.
+
+---
+
+### Play Game Mode
+A simplified mode for playing full games against the bot.
+
+- Customize:
+  - Which color goes first
+  - How long the bot thinks per move
+- Functional but not fully polished
+- The bot does **not** currently resign
+
+</details>
+
+---
+
+<details>
   <summary><strong>Architecture Overview</strong></summary>
 
 ### Neural Network
