@@ -89,6 +89,23 @@ A mode for playing full games against the bot.
 ---
 
 <details>
+  <summary><strong>Training Loop Usage</strong></summary>
+
+## Training Loop Usage
+
+Before using the training loop, I would recommend first understanding how AlphaGo Zero works. You can learn more from the sources at the bottom of the page.
+
+Next, you need to set up all the parameters for an early training stage (assuming you start with a new model). This means fewer MCTS sims, higher learning rate, fewer games per evaluation, and anything else you see fit.
+
+You will also need to set up your file paths on lines 96, 97, 483, 487, and 561.
+
+As you train, you will want to tune the parameters depending on how your model performs.
+
+</details>
+
+---
+
+<details>
   <summary><strong>Architecture Overview</strong></summary>
 
 ### Neural Network
