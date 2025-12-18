@@ -40,6 +40,10 @@ I started this project because of my interest in Go and my interest in game-play
 
 The project includes several interactive modes designed for debugging, analysis, and experimentation with the AlphaZero-style Go bot.
 
+First, you need to choose a model and a corresponding board size.
+
+I have included one model for 5x5 and two for 9x9 (one after ~2000 self-play games and one after ~4000).
+
 ---
 
 ### Freeplay Mode ("sandbox")
@@ -60,12 +64,14 @@ Explore the neural network’s policy priors without running a full MCTS search.
 ### Live MCTS Mode ("live mcts")
 An interactive testing mode that exposes the full Monte Carlo Tree Search process.
 
-- Play moves suggested by the bot **or** choose your own to test responses
+- Play moves suggested by the bot (highlighted in purple) **or** choose your own to test responses
 - Recommended to create custom openings; otherwise the bot may repeat similar games
 - You could also play against the bot in this mode
 
 **Note:**  
 There is no move preview when hovering over the board, and it might be laggy.
+
+If pass is the best move, the text will be bold and larger.
 
 ---
 
