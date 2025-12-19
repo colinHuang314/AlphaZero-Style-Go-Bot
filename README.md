@@ -57,7 +57,7 @@ A sandbox Go environment used primarily to verify rule correctness and board log
 Explore the neural network’s policy priors without running a full MCTS search.
 
 - Visualizes the model priors that guide MCTS and reduce the search space
-- Play moves for **both sides** to observe the bot’s learned “intuition”
+- Play moves for both sides to observe the bot’s learned “intuition”
 
 ---
 
