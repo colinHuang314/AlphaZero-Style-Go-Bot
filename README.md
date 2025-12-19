@@ -62,27 +62,29 @@ Explore the neural network’s policy priors without running a full MCTS search.
 ---
 
 ### Live MCTS Mode ("live mcts")
-An interactive testing mode that exposes the full Monte Carlo Tree Search process.
+An interactive testing mode that shows the full Monte Carlo Tree Search process.
 
-- Play moves suggested by the bot (highlighted in purple) **or** choose your own to test responses
-- Recommended to create custom openings; otherwise the bot may repeat similar games
+- You can play moves suggested by the bot (highlighted in purple) or choose your own to test responses
+- I recommend you create custom openings; otherwise, the bot may repeat similar games
 - You could also play against the bot in this mode
 
 **Note:**  
 There is no move preview when hovering over the board, and it might be laggy.
 
-If pass is the best move, the text will be bold and larger.
+If pass is the best move, the text **"pass"** will appear bold and larger.
 
 ---
 
-### Play Game Mode
+### Play Game Mode ("play game")
 A mode for playing full games against the bot.
 
 - Customize:
   - Which player goes first
   - How long the bot thinks per move
-- Functional but not fully polished
 - The bot doesn't resign
+
+**Note:**
+Modes are functional, but not fully polished.
 
 </details>
 
@@ -93,9 +95,9 @@ A mode for playing full games against the bot.
 
 ## Training Loop Usage
 
-Before using the training loop, I would recommend first understanding how AlphaGo Zero works. You can learn more from the sources at the bottom of the page.
+Before using the training loop, I recommend first understanding how AlphaGo Zero works. You can learn more from the sources at the bottom of the page.
 
-Next, you need to set up all the parameters for an early training stage (assuming you start with a new model). This means fewer MCTS sims, higher learning rate, fewer games per evaluation, and anything else you see fit.
+Next, you need to set up all the parameters for an early training stage (assuming you start with a new model). This means fewer MCTS sims, higher learning rate, fewer games per evaluation, and anything else you see fit. Knowing what number to use is hard. I have set up defaults that you can use as a starting point.
 
 You will also need to set up your file paths (see lines 96, 97, 483, 487, and 561) and create curr_epoch.txt and champion.txt. (The other files are automatically created if they don't exist.
 
@@ -103,7 +105,7 @@ As you train, you will want to tune the parameters depending on how your model p
 
 **Test your model with the Interactive UI!**
 
-*There is an example output at the bottom*
+*There is an example output for the training loop at the bottom of the training loop Python file*
 
 </details>
 
@@ -127,6 +129,9 @@ As you train, you will want to tune the parameters depending on how your model p
 - Dirichlet noise during self-play
 - Training and evaluation temperature schedules for variety vs performance
 
+**Note:**
+A larger model might be better; however, this size is what I used.
+
 </details>
 
 ---
@@ -140,8 +145,9 @@ As you train, you will want to tune the parameters depending on how your model p
   - Optionally save model
   - Train model on replay buffer data every n self-play games
   - Evaluate the resulting model against the champion every m self-play games
-    - If it wins, it replaces the champion and produces the next self-play games
+    - If it wins, it replaces the champion and produces the next batch of self-play games
     - If it loses, keep training
+  - The model will learn to predict the outcome of MCTS search and predict which future board states are good for which player. These will help guide the MCTS search, which will then produce better training data.
 
 - Manual tuning of:
   - Number of iterations per game
@@ -162,10 +168,10 @@ As you train, you will want to tune the parameters depending on how your model p
 
 <details> <summary><strong>🔎 Observations & Training Issues</strong></summary>
   
-### Issues I've had with training (past or present)
-- Sometimes requires very high MCTS simulations to generate usable data
+### Issues I've had with training (past issues that have been fixed or present issues)
+- Training sometimes requires very high MCTS simulations to generate usable data
 
-- Policy struggles with:
+- Policy network struggles with:
   - Captures
   - Eyes
   - Illegal moves (later mitigated)
@@ -173,7 +179,7 @@ As you train, you will want to tune the parameters depending on how your model p
 - Training instability caused by:
   - Replay buffer mis-sizing
   - Temperature scheduling bugs
-  - Max game length truncation corrupting data
+  - Incorrect use of games that stop at a max length, corrupting data
 
 - Bot often:
   - Plays overly safe
@@ -209,9 +215,6 @@ As you train, you will want to tune the parameters depending on how your model p
 <details> <summary><strong>🔮 Potential Future Work</strong></summary>
   
 - Multithreaded or parallel self-play
-- Faster rollout strategies
-- Training without a fixed champion
-- Improved illegal move handling
 - Investigating gradient stability
 - Bit-packed board representations
 - Improved replay buffer sampling
