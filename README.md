@@ -97,7 +97,7 @@ Before using the training loop, I would recommend first understanding how AlphaG
 
 Next, you need to set up all the parameters for an early training stage (assuming you start with a new model). This means fewer MCTS sims, higher learning rate, fewer games per evaluation, and anything else you see fit.
 
-You will also need to set up your file paths (see lines 96, 97, 483, 487, and 561).
+You will also need to set up your file paths (see lines 96, 97, 483, 487, and 561) and create curr_epoch.txt and champion.txt. (The other files are automatically created if they don't exist.
 
 As you train, you will want to tune the parameters depending on how your model performs.
 
