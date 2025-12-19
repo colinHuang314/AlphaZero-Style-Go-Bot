@@ -2,7 +2,7 @@
 
 This project includes:
 - An AlphaZero-style self-play training loop
-- A model for 9x9 and 5x5 that I have trained for about 2 weeks of training time each
+- A model for 9x9 and 5x5 that I have trained for ~2 weeks of training time each with the training loop
 - An interactive UI that displays live MCTS search statistics and neural network priors of saved models
 
 I started this project because of my interest in Go and my interest in game-playing AIs. I hope to develop more insight as to why the strength of the bots I trained plateaued. Although the bots didn't get to the strength I wanted, the training loop still worked, and the interactive UI looks so cool!
