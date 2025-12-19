@@ -101,6 +101,8 @@ You will also need to set up your file paths (see lines 96, 97, 483, 487, and 56
 
 As you train, you will want to tune the parameters depending on how your model performs.
 
+*There is an example output at the bottom*
+
 </details>
 
 ---
