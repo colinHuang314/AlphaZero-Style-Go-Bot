@@ -27,7 +27,7 @@ SEARCH_TIME = 3 # for "play game"
 player_goes_first = True # for "play game"
 
 BOARD_SIZE = 9 # if you change, make sure the path has a model that matches the board size
-path = r"Projects\AZNET Cleaned Folder\AZNET9_epoch_300.pt" # change to your path (needs to match board size)
+path = r"ExampleFolder\AZNET9_epoch_300.pt" # change to your path (needs to match board size)
 # path = r"Projects\AZNET Cleaned Folder\AZNET5_epoch_970.pt" # change to your path (needs to match board size)
 
 # not recommended to change the rest
@@ -647,3 +647,4 @@ if __name__ == "__main__":
 
     else:
         print("mode not found")
+
