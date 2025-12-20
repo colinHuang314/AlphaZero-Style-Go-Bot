@@ -93,8 +93,8 @@ SELFPLAY_GAME_LOG_INTERVAL = 1 #SELFPLAY_GAMES_PER_ITER//6
 
 
 # Paths/device
-CURR_EPOCH_PATH = fr"Projects\AZNET Cleaned Folder\paths\curr_epoch.txt"
-CHAMPION_EPOCH_PATH = fr"Projects\AZNET Cleaned Folder\paths\champion_epoch.txt"
+CURR_EPOCH_PATH = fr"ExampleFolder\paths\curr_epoch.txt"
+CHAMPION_EPOCH_PATH = fr"ExampleFolder\paths\champion_epoch.txt"
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"Using device: {DEVICE}")
 
@@ -480,11 +480,11 @@ def train_loop():
 
     with open(CHAMPION_EPOCH_PATH, "r") as f: #get champion file
         champion_epoch = int(f.read().strip())
-    champion_path = fr"Projects\AZNET Cleaned Folder\paths\AZNET{BOARD_SIZE}_checkpoint_epoch_{champion_epoch}.pt" # AZNET5_checkpoint_epoch_XX 
+    champion_path = fr"ExampleFolder\paths\AZNET{BOARD_SIZE}_checkpoint_epoch_{champion_epoch}.pt" # AZNET5_checkpoint_epoch_XX 
 
     with open(CURR_EPOCH_PATH, "r") as f: # get curr file
         last_loaded_epoch = int(f.read().strip())
-    last_loaded_path = fr"Projects\AZNET Cleaned Folder\paths\AZNET{BOARD_SIZE}_checkpoint_epoch_{last_loaded_epoch}.pt" # AZNET5_checkpoint_epoch_XX 
+    last_loaded_path = fr"ExampleFolder\paths\AZNET{BOARD_SIZE}_checkpoint_epoch_{last_loaded_epoch}.pt" # AZNET5_checkpoint_epoch_XX 
 
     if os.path.exists(champion_path): # load champion
         print(f"Loading champion: {champion_path}")
@@ -560,7 +560,7 @@ def train_loop():
                 # 'scheduler_state_dict': scheduler.state_dict(),
                 'replay_buffer': replay_buffer,   # save buffer too
                 'epoch': epoch,
-            }, fr"Projects\AZNET Cleaned Folder\paths\AZNET{BOARD_SIZE}_checkpoint_epoch_{epoch}.pt")
+            }, fr"ExampleFolder\paths\AZNET{BOARD_SIZE}_checkpoint_epoch_{epoch}.pt")
 
             print(f"\t\t\t\t\t\t\t\t\t{Fore.YELLOW}\033[1mCheckpoint saved at epoch {epoch}\033[0m{Fore.RESET}")
             with open(CURR_EPOCH_PATH, "w") as f:
@@ -765,4 +765,5 @@ Arena game took: 2474
         time for this epoch: 3412 | average time per epoch: 1219 - 12/18/25 5:55 pm
 
 '''
+
 
