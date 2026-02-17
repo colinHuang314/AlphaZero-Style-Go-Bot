@@ -7,6 +7,8 @@ This project includes:
 
 I started this project because of my interest in Go and my interest in game-playing AIs. I hope to develop more insight as to why the strength of the bots I trained plateaued. Although the bots didn't get to the strength I wanted, the training loop still worked, and the interactive UI looks so cool!
 
+![UI Visual Example](assets/AlphaZero-UI-Image2.png)
+
 ---
 
 ## 🌟 Project Highlights
