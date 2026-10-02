@@ -8,9 +8,3 @@ torch==2.13.0
 PyYAML==6.0.3
 tensorboard==2.21.0  # optional: training-loop logging
 pytest==9.1.1
-
-# chess/
-chess==1.11.2        # python-chess
-Flask==3.1.3         # AnalyzeUI / AnalyzeUI2
-colorama==0.4.6
-snakeviz==2.2.2      # optional: profiling mode
