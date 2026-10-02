@@ -1,0 +1,7 @@
+name: hard life or death, black to kill
+to_play: B
+black: F9 H9 D8 E8 F8 H8 D7 F7 H7 D6 E5 E4 E3 F3 F2 G2 H1
+white: D9 C8 G8 C7 G7 C6 F6 H6 C5 C4 F4 G4 H4 C3 G3 D2 H2 J2 E1
+answer: J3
+note: made by colin
+source: go-zero UI

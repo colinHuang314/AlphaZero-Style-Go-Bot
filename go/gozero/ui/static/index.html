@@ -1,0 +1,661 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>go-zero</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root {
+    --wood: #C18D56;          /* same board color as the original UI */
+    --wood-dark: #a8763f;
+    --ink: #1d1b19;
+    --paper: #f4efe7;
+    --panel: #fffdf9;
+    --line: #e2d9cc;
+    --muted: #7a7065;
+    --red: #d0021b;           /* numbers on the board, as before */
+    --best: #8e24aa;          /* purple ring = most visited */
+    --good: #2e8b3a;          /* green ring = close alternatives */
+    --last: #ff9800;          /* orange square = last move */
+    --blue: #1a5fd0;          /* headline numbers */
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--paper); color: var(--ink);
+         font: 14px/1.4 "Segoe UI", system-ui, sans-serif; }
+  header { display: flex; align-items: center; gap: 16px; padding: 10px 18px;
+           border-bottom: 1px solid var(--line); background: var(--panel); flex-wrap: wrap; }
+  header h1 { font-size: 18px; margin: 0; letter-spacing: .5px; }
+  header h1 span { color: var(--blue); }
+  .tabs { display: flex; gap: 4px; }
+  .tabs button { border: 1px solid var(--line); background: #fff; padding: 6px 12px; border-radius: 6px;
+                 cursor: pointer; font: inherit; }
+  .tabs button.on { background: var(--ink); color: #fff; border-color: var(--ink); }
+  select, input[type=number] { font: inherit; padding: 4px 6px; border: 1px solid var(--line); border-radius: 5px; background: #fff; }
+  main { display: grid; grid-template-columns: minmax(360px, 1fr) 400px; gap: 18px; padding: 16px 18px;
+         max-width: 1280px; margin: 0 auto; }
+  @media (max-width: 900px) { main { grid-template-columns: 1fr; } }
+  .boardwrap { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+  canvas#board { width: 100%; max-width: 700px; aspect-ratio: 1; border-radius: 4px;
+                 box-shadow: 0 6px 20px rgba(80,50,20,.25); cursor: pointer; }
+  .headline { text-align: center; }
+  .headline .visits { color: var(--blue); font-size: 26px; font-weight: 700; }
+  .headline .sub { color: var(--muted); font-size: 13px; }
+  .controls { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; justify-content: center; width: 100%; max-width: 700px; }
+  .controls button { border: 1px solid var(--line); background: #fff; border-radius: 6px; padding: 6px 12px;
+                     cursor: pointer; font: inherit; min-width: 38px; }
+  .controls button:hover { background: #f1ebe2; }
+  .controls input[type=range] { flex: 1; min-width: 120px; }
+  .pass-chip { font-weight: 700; color: var(--red); }
+  .pass-chip.best { font-size: 18px; }
+  aside { display: flex; flex-direction: column; gap: 12px; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; }
+  .card h2 { font-size: 12px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin: 0 0 8px; }
+  .wbar { display: flex; height: 26px; border-radius: 5px; overflow: hidden; border: 1px solid #333; font-weight: 700; font-size: 13px; }
+  .wbar div { display: flex; align-items: center; padding: 0 8px; transition: width .25s; white-space: nowrap; }
+  .wbar .b { background: #1d1b19; color: #fff; }
+  .wbar .w { background: #fff; color: #1d1b19; justify-content: flex-end; flex: 1; }
+  .kv { display: grid; grid-template-columns: auto 1fr; gap: 2px 12px; margin-top: 8px; font-size: 13px; }
+  .kv b { font-weight: 600; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; font-variant-numeric: tabular-nums; }
+  th { text-align: right; color: var(--muted); font-weight: 600; padding: 2px 4px; border-bottom: 1px solid var(--line); }
+  td { text-align: right; padding: 3px 4px; border-bottom: 1px solid #f0e9df; }
+  th:nth-child(2), td:nth-child(2), th:last-child, td:last-child { text-align: left; }
+  tr.cand { cursor: pointer; }
+  tr.cand:hover, tr.cand.hl { background: #f6efe4; }
+  tr.cand.best td:nth-child(2) { color: var(--best); font-weight: 700; }
+  td.pv { color: var(--muted); font-size: 12px; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  canvas#graph { width: 100%; height: 150px; cursor: pointer; }
+  .toggles { display: flex; flex-wrap: wrap; gap: 6px 14px; }
+  .toggles label { display: flex; gap: 5px; align-items: center; cursor: pointer; }
+  .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 4px 0; }
+  .row label { color: var(--muted); }
+  .msg { color: var(--red); font-weight: 600; min-height: 1.2em; text-align: center; }
+  .result { font-size: 20px; font-weight: 800; color: var(--red); text-align: center; }
+  .legend { font-size: 12px; color: var(--muted); }
+  .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin: 0 3px 0 8px; vertical-align: -1px; }
+  .card button { border: 1px solid var(--line); background: #fff; border-radius: 6px; padding: 5px 10px; cursor: pointer; font: inherit; }
+  .card button:hover { background: #f1ebe2; }
+  .card button.on { background: var(--ink); color: #fff; border-color: var(--ink); }
+  .card input[type=text] { font: inherit; padding: 4px 6px; border: 1px solid var(--line); border-radius: 5px; }
+  .ok { color: #2e8b3a; font-weight: 700; } .bad { color: var(--red); font-weight: 700; }
+  #pzBatch table td:nth-child(2), #pzBatch table th:nth-child(2) { text-align: left; }
+  kbd { background: #fff; border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 3px; padding: 0 4px; font-size: 11px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>go<span>-zero</span></h1>
+  <div class="tabs" id="tabs"></div>
+  <div class="row"><label>Model</label><select id="model"></select></div>
+  <div class="row" id="sizeRow"><label>Board</label>
+    <select id="size"><option>5</option><option>7</option><option selected>9</option></select>
+    <button class="tabs" id="newGame" style="padding:5px 10px;border:1px solid var(--line);border-radius:6px;background:#fff;cursor:pointer">New game</button>
+  </div>
+</header>
+
+<main>
+  <section class="boardwrap">
+    <div class="headline">
+      <div class="visits" id="headVisits">&nbsp;</div>
+      <div class="sub" id="headSub">&nbsp;</div>
+    </div>
+    <canvas id="board" width="700" height="700"></canvas>
+    <div id="passInfo"></div>
+    <div class="controls">
+      <button id="first" title="Start (Home)">⏮</button>
+      <button id="back" title="Back (←)">◀</button>
+      <input type="range" id="slider" min="0" max="0" value="0">
+      <button id="fwd" title="Forward (→)">▶</button>
+      <button id="last" title="End (End)">⏭</button>
+      <button id="pass" title="Pass (P)">Pass</button>
+      <button id="toggleSearch" title="Pause / resume analysis (Space)">Pause</button>
+    </div>
+    <div class="msg" id="msg"></div>
+    <div class="result" id="result"></div>
+  </section>
+
+  <aside>
+    <div class="card">
+      <h2>Evaluation</h2>
+      <div class="wbar"><div class="b" id="wbB">B 50%</div><div class="w" id="wbW">W 50%</div></div>
+      <div class="kv" id="evalKV"></div>
+    </div>
+
+    <div class="card" id="candCard">
+      <h2>Top moves <span class="legend">hover a row to preview its line</span></h2>
+      <table><thead><tr><th>#</th><th>Move</th><th>Win%</th><th>Visits</th><th>Prior</th><th>Line</th></tr></thead>
+        <tbody id="cands"></tbody></table>
+    </div>
+
+    <div class="card">
+      <h2>Black win rate over the game <span class="legend"><i style="background:var(--blue)"></i>search<i style="background:#b7a58f"></i>net</span></h2>
+      <canvas id="graph" width="370" height="150"></canvas>
+    </div>
+
+    <div class="card">
+      <h2>Overlays</h2>
+      <div class="toggles">
+        <label><input type="checkbox" id="ovSearch" checked> Search</label>
+        <label><input type="checkbox" id="ovPolicy"> Policy</label>
+        <label><input type="checkbox" id="ovOwn"> Ownership</label>
+        <label><input type="checkbox" id="ovNums"> Move numbers</label>
+        <label><input type="checkbox" id="ovCoords" checked> Coordinates</label>
+      </div>
+      <div class="row"><label>Candidate labels</label>
+        <select id="labelMode"><option value="win">win% / visits</option><option value="share">share / visits</option><option value="prior">prior / visits</option></select>
+      </div>
+    </div>
+
+    <div class="card" id="modeCard"></div>
+
+    <div class="card">
+      <h2>Game</h2>
+      <div class="kv" id="gameKV"></div>
+      <div class="row" style="margin-top:8px">
+        <button id="saveSgf">Save SGF</button>
+        <label for="loadSgf" style="cursor:pointer;color:var(--blue)">Load SGF…</label>
+        <input type="file" id="loadSgf" accept=".sgf" style="display:none">
+      </div>
+      <div class="legend" style="margin-top:6px"><kbd>←</kbd><kbd>→</kbd> navigate · <kbd>P</kbd> pass · <kbd>Space</kbd> pause analysis</div>
+    </div>
+  </aside>
+</main>
+
+<script>
+const $ = id => document.getElementById(id);
+const MODES = [["analyze","Analyze"],["play","Play vs bot"],["watch","Watch bots"],["policy","Policy view"],["sandbox","Sandbox"],["puzzle","Puzzles"]];
+const COLS = "ABCDEFGHJKLMNOPQRST";
+let S = null;              // last server snapshot
+let hover = null;          // board point under the mouse
+let hoverCand = null;      // candidate move whose line is previewed
+let pzTool = "B";          // puzzle editor tool: B, W, erase, mark
+let busy = false;
+
+async function post(a) {
+  const r = await fetch("/api/action", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(a)});
+  const j = await r.json();
+  if (!j.ok && j.message) $("msg").textContent = j.message;
+  poll();
+  return j;
+}
+const setv = (key, value) => post({type:"set", key, value});
+const mstr = (m, n) => m === n*n ? "pass" : COLS[m % n] + (n - Math.floor(m / n));
+const pct = x => (100*x).toFixed(1);
+
+// ------------------------------------------------------------------ board geometry
+const cv = $("board"), ctx = cv.getContext("2d");
+function geom() {
+  const n = S.n, W = cv.width, coords = $("ovCoords").checked;
+  const margin = W * (coords ? 0.1 : 0.05);
+  const step = (W - 2*margin) / (n - 1);
+  return {n, W, margin, step, x: c => margin + c*step, y: r => margin + r*step};
+}
+function fitCanvas(c) {
+  const dpr = window.devicePixelRatio || 1, rect = c.getBoundingClientRect();
+  const w = Math.round(rect.width * dpr), h = Math.round(rect.height * dpr);
+  if (c.width !== w || c.height !== h) { c.width = w; c.height = h; }
+}
+
+function stone(g, r, c, color, alpha=1, radius=0.47, ring=null, ringW=0) {
+  const x = g.x(c), y = g.y(r), R = g.step * radius;
+  ctx.save(); ctx.globalAlpha = alpha;
+  const grad = ctx.createRadialGradient(x - R*.35, y - R*.35, R*.1, x, y, R);
+  if (color === 1) { grad.addColorStop(0, "#5a5652"); grad.addColorStop(1, "#0d0c0b"); }
+  else { grad.addColorStop(0, "#ffffff"); grad.addColorStop(1, "#d8d2c8"); }
+  ctx.beginPath(); ctx.arc(x, y, R, 0, 2*Math.PI); ctx.fillStyle = grad; ctx.fill();
+  if (color === -1 && alpha > 0.9) { ctx.lineWidth = Math.max(1, g.step*0.02); ctx.strokeStyle = "#555"; ctx.stroke(); }
+  ctx.restore();
+  if (ring) { ctx.beginPath(); ctx.arc(x, y, R, 0, 2*Math.PI); ctx.lineWidth = ringW; ctx.strokeStyle = ring; ctx.stroke(); }
+}
+function text(g, r, c, s, color, size, dy=0, weight="600", halo=null) {
+  ctx.font = `${weight} ${size}px "Segoe UI", sans-serif`;
+  ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  if (halo) {  // light outline keeps red numbers readable on dark stones
+    ctx.lineJoin = "round"; ctx.lineWidth = size * 0.28; ctx.strokeStyle = halo;
+    ctx.strokeText(s, g.x(c), g.y(r) + dy);
+  }
+  ctx.fillStyle = color; ctx.fillText(s, g.x(c), g.y(r) + dy);
+}
+const HALO = "rgba(255,244,228,0.9)";
+
+function drawBoard() {
+  fitCanvas(cv);
+  const g = geom(), n = g.n;
+  // wood
+  const wg = ctx.createLinearGradient(0, 0, g.W, g.W);
+  wg.addColorStop(0, "#c9965f"); wg.addColorStop(.5, "#C18D56"); wg.addColorStop(1, "#b5834c");
+  ctx.fillStyle = wg; ctx.fillRect(0, 0, g.W, g.W);
+  // grid
+  ctx.strokeStyle = "#2b2016"; ctx.lineWidth = Math.max(1, g.W/600);
+  for (let i = 0; i < n; i++) {
+    ctx.beginPath(); ctx.moveTo(g.x(0), g.y(i)); ctx.lineTo(g.x(n-1), g.y(i)); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(g.x(i), g.y(0)); ctx.lineTo(g.x(i), g.y(n-1)); ctx.stroke();
+  }
+  const stars = n === 9 ? [[2,2],[2,6],[6,2],[6,6],[4,4]] : n === 7 ? [[3,3]] : n === 5 ? [[2,2]] : [];
+  for (const [r,c] of stars) { ctx.beginPath(); ctx.arc(g.x(c), g.y(r), g.step*0.07, 0, 2*Math.PI); ctx.fillStyle = "#2b2016"; ctx.fill(); }
+  if ($("ovCoords").checked) {
+    ctx.fillStyle = "#4a3521"; ctx.font = `600 ${g.step*0.26}px "Segoe UI", sans-serif`; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    for (let i = 0; i < n; i++) {
+      ctx.fillText(COLS[i], g.x(i), g.margin*0.36); ctx.fillText(COLS[i], g.x(i), g.W - g.margin*0.36);
+      ctx.fillText(String(n - i), g.margin*0.36, g.y(i)); ctx.fillText(String(n - i), g.W - g.margin*0.36, g.y(i));
+    }
+  }
+
+  // ownership / territory
+  const own = S.territory || ($("ovOwn").checked && S.net && S.net.ownership);
+  if (own) {
+    for (let p = 0; p < n*n; p++) {
+      const v = own[p]; if (Math.abs(v) < 0.08 || S.board[p] === Math.sign(v)) continue;
+      const a = Math.abs(v), r = Math.floor(p/n), c = p % n;
+      const s = g.step * (S.territory ? 0.34 : 0.18 + 0.32*a);   // bigger + darker = more certain
+      ctx.globalAlpha = S.territory ? 0.65 : Math.min(0.9, 0.3 + 0.6*a);
+      ctx.fillStyle = v > 0 ? "#111" : "#fff";
+      ctx.fillRect(g.x(c) - s/2, g.y(r) - s/2, s, s);
+      ctx.globalAlpha = 1;
+    }
+  }
+
+  // stones
+  const numbers = $("ovNums").checked ? moveNumbers() : null;
+  for (let p = 0; p < n*n; p++) {
+    const v = S.board[p]; if (!v) continue;
+    const r = Math.floor(p/n), c = p % n;
+    stone(g, r, c, v);
+    if (numbers && numbers[p]) text(g, r, c, numbers[p], v === 1 ? "#fff" : "#111", g.step*0.33);
+  }
+  // dead-stone hint from ownership: stone predicted to be owned by the opponent
+  if ($("ovOwn").checked && S.net && S.net.ownership && !S.territory) {
+    for (let p = 0; p < n*n; p++) {
+      const v = S.board[p], o = S.net.ownership[p];
+      if (v && o * v < -0.5) { const r = Math.floor(p/n), c = p % n; const s = g.step*0.22;
+        ctx.fillStyle = v === 1 ? "#fff" : "#111"; ctx.globalAlpha = Math.min(0.9, -o*v); ctx.fillRect(g.x(c)-s/2, g.y(r)-s/2, s, s); ctx.globalAlpha = 1; }
+    }
+  }
+  // last move: orange square (as in the original UI)
+  if (S.last_move !== null && S.last_move < n*n && !numbers) {
+    const r = Math.floor(S.last_move/n), c = S.last_move % n, s = g.step*0.28;
+    ctx.fillStyle = "var(--last)"; ctx.fillStyle = "#ff9800"; ctx.fillRect(g.x(c)-s/2, g.y(r)-s/2, s, s);
+  }
+
+  if (hoverCand !== null) { drawPV(g); return; }
+  const mode = S.settings.mode;
+  const showSearch = $("ovSearch").checked && S.search && mode !== "policy";
+  const showPolicy = S.net && (mode === "policy" || $("ovPolicy").checked || (!S.search && mode === "analyze"));
+  if (showSearch) drawCandidates(g);
+  else if (showPolicy) drawPolicy(g);
+  if (mode === "puzzle") { drawPuzzleMarks(g); return; }
+  // hover ghost stone for the human's move
+  if (hover !== null && canClick() && S.board[hover] === 0 && S.legal[hover]) {
+    stone(g, Math.floor(hover/n), hover % n, S.to_play, 0.45);
+  }
+}
+function drawPuzzleMarks(g) {
+  const n = g.n, pz = S.puzzle;
+  const cross = (r, c, color, size) => { const x = g.x(c), y = g.y(r), d = g.step*size;
+    ctx.strokeStyle = color; ctx.lineWidth = g.step*0.08; ctx.lineCap = "round";
+    ctx.beginPath(); ctx.moveTo(x-d, y-d); ctx.lineTo(x+d, y+d); ctx.moveTo(x+d, y-d); ctx.lineTo(x-d, y+d); ctx.stroke(); };
+  const ring = (r, c, color, rad, w) => { ctx.beginPath(); ctx.arc(g.x(c), g.y(r), g.step*rad, 0, 2*Math.PI);
+    ctx.strokeStyle = color; ctx.lineWidth = g.step*w; ctx.stroke(); };
+  for (const p of pz.marks) {   // answers: green ring + check; "play elsewhere" puzzles: points that count as wrong
+    const r = Math.floor(p/n), c = p % n;
+    if (pz.tenuki) cross(r, c, "rgba(208,2,27,.8)", 0.16);
+    else { ring(r, c, "#2e8b3a", 0.36, 0.09); text(g, r, c, "\u2713", "#2e8b3a", g.step*0.34, g.step*0.02, "900", HALO); }
+  }
+  for (const p of pz.bad) ring(Math.floor(p/n), p % n, "#d0021b", 0.5, 0.07);   // stones with no liberties
+  if (hover === null) return;
+  const r = Math.floor(hover/n), c = hover % n;
+  if ((pzTool === "B" || pzTool === "W") && S.board[hover] === 0) stone(g, r, c, pzTool === "B" ? 1 : -1, 0.5);
+  else if (pzTool === "erase" && S.board[hover] !== 0) cross(r, c, "#d0021b", 0.18);
+  else if (pzTool === "mark") ring(r, c, pz.tenuki ? "#d0021b" : "#2e8b3a", 0.36, 0.05);
+}
+
+function drawCandidates(g) {
+  const n = g.n, cands = S.search.candidates; if (!cands.length) return;
+  const maxV = cands[0].visits, mode = $("labelMode").value, fs = g.step*0.27;
+  for (const cd of cands) {
+    if (cd.move === n*n) continue;
+    if (cd.visits < Math.max(2, maxV * 0.002)) continue;
+    const r = Math.floor(cd.move/n), c = cd.move % n;
+    const best = cd === cands[0], good = !best && cd.visits >= 0.7*maxV;
+    const alpha = Math.pow(cd.visits / maxV, 0.9) * 0.8;      // same formula as the original UI
+    stone(g, r, c, S.to_play, Math.max(0.12, alpha), best ? 0.47 : good ? 0.45 : 0.42,
+          best ? "#8e24aa" : good ? "#2e8b3a" : null, g.step*(best ? 0.07 : 0.05));
+    const top = mode === "win" ? pct(cd.winrate) : mode === "share" ? pct(cd.share) : pct(cd.prior);
+    const w = best || good ? "800" : "600";
+    text(g, r, c, top, "#d0021b", fs * (best ? 1.12 : 1), -g.step*0.12, w, HALO);
+    text(g, r, c, kfmt(cd.visits), "#d0021b", fs * 0.9, g.step*0.16, w, HALO);
+  }
+}
+function drawPolicy(g) {
+  const n = g.n, p = S.net.policy;
+  let mx = 0; for (let i = 0; i < n*n; i++) mx = Math.max(mx, p[i]);
+  let best = 0; for (let i = 0; i <= n*n; i++) if (p[i] > p[best]) best = i;
+  for (let i = 0; i < n*n; i++) {
+    if (!S.legal[i] || p[i] < 0.002) continue;
+    const r = Math.floor(i/n), c = i % n, rel = p[i]/mx;
+    const bestHere = i === best, good = !bestHere && rel >= 0.75;
+    stone(g, r, c, S.to_play, Math.max(0.1, Math.pow(rel, 0.9)*0.8), 0.44,
+          bestHere ? "#8e24aa" : good ? "#2e8b3a" : null, g.step*0.06);
+    text(g, r, c, pct(p[i]), "#d0021b", g.step*(bestHere ? 0.3 : 0.25), 0, bestHere || good ? "800" : "600", HALO);
+  }
+}
+function drawPV(g) {
+  const cd = S.search && S.search.candidates.find(x => x.move === hoverCand); if (!cd) return;
+  let color = S.to_play;
+  cd.pv.forEach((m, i) => {
+    if (m !== g.n*g.n) {
+      const r = Math.floor(m/g.n), c = m % g.n;
+      stone(g, r, c, color, 0.78, 0.46, i === 0 ? "#8e24aa" : null, g.step*0.06);
+      text(g, r, c, String(i+1), color === 1 ? "#fff" : "#111", g.step*0.34, 0, "700");
+    }
+    color = -color;
+  });
+}
+function moveNumbers() {
+  const n = S.n, nums = new Array(n*n).fill(0);
+  S.moves.slice(0, S.cursor).forEach((m, i) => { if (m < n*n) nums[m] = i + 1; });
+  return nums.map((v, p) => S.board[p] ? v : 0);
+}
+const kfmt = v => v >= 10000 ? (v/1000).toFixed(0) + "k" : v >= 1000 ? (v/1000).toFixed(1) + "k" : String(v);
+
+// ------------------------------------------------------------------ side panel
+function canClick() {
+  const m = S.settings.mode;
+  if (m === "puzzle") return true;
+  if (S.game_over || m === "watch") return false;
+  if (m === "play") return S.to_play === S.settings.human_color && S.cursor === S.length;
+  return true;
+}
+function renderPanel() {
+  const st = S.settings, n = S.n;
+  // tabs
+  if (!$("tabs").children.length) for (const [k, label] of MODES) {   // build once; later polls only restyle
+    const b = document.createElement("button"); b.textContent = label; b.dataset.mode = k;
+    b.onclick = () => setv("mode", k); $("tabs").appendChild(b);
+  }
+  for (const b of $("tabs").children) b.className = st.mode === b.dataset.mode ? "on" : "";
+  // model selectors
+  fillSelect($("model"), S.models, st.model);
+  // headline (like the original: big blue visit count)
+  const toPlay = S.to_play === 1 ? "Black" : "White";
+  if (st.mode === "puzzle") {
+    const pz = S.puzzle;
+    $("headVisits").textContent = pz.name ? `Puzzle: ${pz.name}` : "New puzzle";
+    $("headSub").textContent = `${toPlay} to play` + (S.search ? ` \u00b7 ${S.search.visits.toLocaleString()} visits \u00b7 ${Math.round(S.vps).toLocaleString()} visits/s` : "") +
+      (pz.file ? ` \u00b7 problems/${pz.file}` : " \u00b7 not saved");
+  } else if (S.game_over) {
+    $("headVisits").textContent = `Game over: ${S.result}`;
+    $("headSub").textContent = `${S.length} moves · captures B ${S.captures.black} / W ${S.captures.white} · squares show Tromp-Taylor territory`;
+  } else if (S.search) {
+    $("headVisits").textContent = S.search.visits.toLocaleString() + " visits";
+    $("headSub").textContent = `${Math.round(S.vps).toLocaleString()} visits/s · ${toPlay} to play · move ${S.cursor + 1}`;
+  } else {
+    $("headVisits").innerHTML = st.mode === "sandbox" ? "Sandbox" : st.mode === "policy" ? "Raw policy" : "&nbsp;";
+    $("headSub").textContent = `${toPlay} to play · move ${S.cursor + 1}`;
+  }
+  // win bar: search value if present, else net value
+  const bw = S.search ? S.search.black_winrate : S.net ? S.net.black_winrate : null;
+  $("wbB").parentElement.style.display = bw === null ? "none" : "";
+  $("graph").parentElement.style.display = (st.mode === "sandbox" || st.mode === "puzzle") ? "none" : "";
+  $("gameKV").parentElement.style.display = st.mode === "puzzle" ? "none" : "";
+  document.querySelector(".controls").style.display = st.mode === "puzzle" ? "none" : "";   // no move list in the editor
+  if (bw !== null) {
+    $("wbB").style.width = Math.max(12, Math.min(88, 100*bw)) + "%";
+    $("wbB").textContent = "B " + pct(bw) + "%"; $("wbW").textContent = "W " + pct(1 - bw) + "%";
+  }
+  const kv = [];
+  if (S.search) kv.push(["Search", `${pct(S.search.black_winrate)}% black (${S.search.visits.toLocaleString()} visits)`]);
+  if (S.net) {
+    kv.push(["Net value", `${pct(S.net.black_winrate)}% black`]);
+    if (S.net.score_lead !== null) { const sl = S.net.score_lead; kv.push(["Score lead", `${sl >= 0 ? "B" : "W"}+${Math.abs(sl).toFixed(1)} (net)`]); }
+    kv.push(["Model", `${S.net.model.split("/").slice(-2).join("/")} (${S.net.kind})`]);
+  }
+  if (S.score_now !== undefined && !S.game_over) kv.push(["Area now", `${S.score_now >= 0 ? "B" : "W"}+${Math.abs(S.score_now)}`]);
+  $("evalKV").innerHTML = kv.map(([k, v]) => `<b>${k}</b><span>${v}</span>`).join("");
+
+  // candidates table
+  const tb = $("cands"); tb.innerHTML = "";
+  $("candCard").style.display = S.search ? "" : "none";
+  if (S.search) S.search.candidates.slice(0, 10).forEach((cd, i) => {
+    const tr = document.createElement("tr"); tr.className = "cand" + (i === 0 ? " best" : "") + (cd.move === hoverCand ? " hl" : "");
+    tr.innerHTML = `<td>${i+1}</td><td>${mstr(cd.move, n)}</td><td>${pct(cd.winrate)}</td><td>${kfmt(cd.visits)}</td>` +
+                   `<td>${pct(cd.prior)}</td><td class="pv">${cd.pv.slice(1, 7).map(m => mstr(m, n)).join(" ")}</td>`;
+    tr.dataset.move = cd.move;
+    tb.appendChild(tr);
+  });
+
+  // pass info under the board (as in the original UI)
+  let passTxt = "";
+  if (S.search) { const pc = S.search.candidates.find(c => c.move === n*n);
+    if (pc) passTxt = `<span class="pass-chip ${pc === S.search.candidates[0] ? "best" : ""}">pass: ${pct(pc.share)}% of visits, ${pct(pc.winrate)}% win</span>`; }
+  else if (S.net && st.mode !== "sandbox") passTxt = `<span class="pass-chip">pass prior: ${pct(S.net.policy[n*n])}%</span>`;
+  if (S.passes === 1 && !S.game_over) passTxt += ` <span class="legend">— opponent passed; passing now ends the game</span>`;
+  $("passInfo").innerHTML = passTxt;
+
+  $("result").textContent = S.game_over ? `Game over: ${S.result}` : "";
+  $("msg").textContent = S.message || "";
+  $("toggleSearch").textContent = st.analyzing ? "Pause" : "Analyze";
+  $("toggleSearch").style.display = (st.mode === "analyze" || st.mode === "play") ? "" : "none";
+  const sl = $("slider"); sl.max = S.length; if (document.activeElement !== sl) sl.value = S.cursor;
+
+  $("gameKV").innerHTML = [
+    ["Move", `${S.cursor} / ${S.length}`], ["To play", toPlay], ["Komi", S.komi],
+    ["Captures", `B ${S.captures.black} · W ${S.captures.white}`],
+    ["Last move", S.last_move === null ? "–" : mstr(S.last_move, n)],
+  ].map(([k, v]) => `<b>${k}</b><span>${v}</span>`).join("");
+  renderModeCard();
+  drawGraph();
+}
+
+let modeCardKey = "";
+function renderModeCard() {
+  const st = S.settings;
+  const key = st.mode === "puzzle" ? "puzzle" : JSON.stringify([st.mode, st.human_color, st.bot_visits, st.watch_visits, st.max_visits, st.white_model, S.models.length]);
+  if (key === modeCardKey) { if (st.mode === "puzzle") renderPuzzle(); return; }   // don't rebuild inputs while the user is typing
+  modeCardKey = key;
+  const c = $("modeCard");
+  if (st.mode === "puzzle") { buildPuzzleCard(c); renderPuzzle(); return; }
+  if (st.mode === "play") {
+    c.innerHTML = `<h2>Play vs bot</h2>
+      <div class="row"><label>You play</label><select id="hc"><option value="1">Black</option><option value="-1">White</option></select></div>
+      <div class="row"><label>Bot visits per move</label><input type="number" id="bv" min="1" max="100000" value="${st.bot_visits}"></div>
+      <div class="legend">The bot keeps analyzing while you think (turn it off with Pause). Undo takes back your move and the bot's.</div>`;
+    $("hc").value = String(st.human_color); $("hc").onchange = e => setv("human_color", parseInt(e.target.value));
+    $("bv").onchange = e => setv("bot_visits", parseInt(e.target.value));
+  } else if (st.mode === "watch") {
+    c.innerHTML = `<h2>Watch bots</h2>
+      <div class="row"><label>Black</label><select id="bm"></select></div>
+      <div class="row"><label>White</label><select id="wm"></select></div>
+      <div class="row"><label>Visits per move</label><input type="number" id="wv" min="1" max="100000" value="${st.watch_visits}"></div>
+      <div class="legend">Black uses the model selected at the top.</div>`;
+    fillSelect($("bm"), S.models, st.model); fillSelect($("wm"), S.models, st.white_model);
+    $("bm").onchange = e => setv("model", e.target.value); $("wm").onchange = e => setv("white_model", e.target.value);
+    $("wv").onchange = e => setv("watch_visits", parseInt(e.target.value));
+  } else if (st.mode === "analyze") {
+    c.innerHTML = `<h2>Analysis</h2>
+      <div class="row"><label>Stop at visits</label><input type="number" id="mv" min="10" max="10000000" value="${st.max_visits}"></div>
+      <div class="legend">Click to place stones for the side to move; the search restarts (reusing its tree) after every move.</div>`;
+    $("mv").onchange = e => setv("max_visits", parseInt(e.target.value));
+  } else if (st.mode === "policy") {
+    c.innerHTML = `<h2>Policy view</h2><div class="legend">Raw network move probabilities, no search. Purple ring = top move, green = within 75% of it.</div>`;
+  } else {
+    c.innerHTML = `<h2>Sandbox</h2><div class="legend">Free play to test rules (captures, suicide, superko). Territory shows the Tromp-Taylor area score of the current board.</div>`;
+  }
+}
+// ------------------------------------------------------------------ puzzle editor
+let pzShownFile = undefined;
+function buildPuzzleCard(c) {
+  c.innerHTML = `<h2>Puzzle editor</h2>
+    <div class="row" id="pzTools"><button data-t="B">&#9679; Black</button><button data-t="W">&#9675; White</button>
+      <button data-t="erase">Erase</button><button data-t="mark">&#10003; Mark answer</button></div>
+    <div class="row"><label>To play</label><button id="pzTpB">Black</button><button id="pzTpW">White</button></div>
+    <div class="row"><label><input type="checkbox" id="pzTen"> Answer is "play elsewhere" (mark the group's points; moves there count as wrong)</label></div>
+    <div class="row"><label>Name</label><input type="text" id="pzName" style="flex:1"></div>
+    <div class="row"><label>Note</label><input type="text" id="pzNote" style="flex:1" placeholder="optional, e.g. why the answer works"></div>
+    <div class="row"><button id="pzSave">Save puzzle</button><button id="pzSaveNew">Save as new</button><button id="pzNew">Clear board</button></div>
+    <div class="row"><label>Saved</label><select id="pzFiles" style="max-width:190px"></select><button id="pzLoad">Load</button><button id="pzDel">Delete</button></div>
+    <h2 style="margin-top:12px">Test the model</h2>
+    <div class="row"><label>Visits</label><input type="number" id="pzVisits" value="800" min="1" max="1000000" style="width:90px">
+      <button id="pzRun">Run</button><button id="pzStop">Stop</button><button id="pzRunAll">Run all puzzles</button></div>
+    <div id="pzStatus" style="margin:4px 0"></div>
+    <div id="pzBatch"></div>
+    <div class="legend" style="margin-top:6px">Click places the selected stone (click it again to remove); right-click erases.
+      Positions are set up freely, with no captures. Runs use the model selected at the top. Puzzles are saved to <code>problems/</code>.</div>`;
+  for (const b of $("pzTools").children) b.onclick = () => { pzTool = b.dataset.t; renderPuzzle(); drawBoard(); };
+  $("pzTpB").onclick = () => post({type:"pz_to_play", color: 1});
+  $("pzTpW").onclick = () => post({type:"pz_to_play", color: -1});
+  $("pzTen").onchange = e => post({type:"pz_tenuki", value: e.target.checked});
+  const meta = () => ({name: $("pzName").value, note: $("pzNote").value});
+  $("pzSave").onclick = () => post({type:"pz_save", overwrite: true, ...meta()});
+  $("pzSaveNew").onclick = () => post({type:"pz_save", overwrite: false, ...meta()});
+  $("pzNew").onclick = () => post({type:"pz_clear"});
+  $("pzLoad").onclick = () => { if ($("pzFiles").value) post({type:"pz_load", file: $("pzFiles").value}); };
+  $("pzDel").onclick = () => { const f = $("pzFiles").value;
+    if (f && confirm(`Delete problems/${f}? This cannot be undone.`)) post({type:"pz_delete", file: f}); };
+  $("pzRun").onclick = () => post({type:"pz_run", visits: parseInt($("pzVisits").value) || 800});
+  $("pzStop").onclick = () => post({type:"pz_stop"});
+  $("pzRunAll").onclick = () => post({type:"pz_run_all", visits: parseInt($("pzVisits").value) || 800});
+  $("labelMode").value = "share";   // the move distribution is the natural view for puzzles
+  pzShownFile = undefined;
+}
+function renderPuzzle() {
+  const pz = S.puzzle; if (!pz || !$("pzTools")) return;
+  for (const b of $("pzTools").children) b.className = b.dataset.t === pzTool ? "on" : "";
+  $("pzTpB").className = S.to_play === 1 ? "on" : ""; $("pzTpW").className = S.to_play === -1 ? "on" : "";
+  $("pzTen").checked = pz.tenuki;
+  if (pz.file !== pzShownFile) {   // only overwrite the text fields when a different puzzle is loaded or cleared
+    pzShownFile = pz.file; $("pzName").value = pz.name || ""; $("pzNote").value = pz.note || "";
+  }
+  fillSelect($("pzFiles"), pz.files, pz.file || $("pzFiles").value);
+  let status = "";
+  if (pz.bad.length) status += `<div class="bad">Stones with no liberties (red rings): this position is impossible.</div>`;
+  if (!pz.marks.length) status += `<div class="legend">No answer marked yet: pick "&#10003; Mark answer" and click the correct move(s).</div>`;
+  if (S.search && S.search.top_correct !== undefined && S.search.candidates.length) {
+    const top = S.search.candidates[0];
+    status += `<div>Top move <b>${mstr(top.move, S.n)}</b> <span class="${S.search.top_correct ? "ok" : "bad"}">${S.search.top_correct ? "&#10003; correct" : "&#10007; wrong"}</span>
+      &middot; ${pct(S.search.share_correct)}% of visits on correct moves &middot; ${S.search.visits.toLocaleString()} visits</div>`;
+  }
+  $("pzStatus").innerHTML = status;
+  const b = pz.batch;
+  if (b) {
+    const rows = b.results.map(r => r.error ? `<tr><td></td><td>${r.name}</td><td colspan="4" class="bad">${r.error}</td></tr>` :
+      `<tr><td class="${r.correct ? "ok" : "bad"}">${r.correct ? "&#10003;" : "&#10007;"}</td><td>${r.name}</td><td>${r.top}</td><td>${r.answers}</td>` +
+      `<td>${pct(r.share_correct)}%</td><td>${pct(r.prior_correct)}%</td></tr>`).join("");
+    $("pzBatch").innerHTML = `<div style="margin:6px 0"><b>Solved ${b.solved} / ${b.total}</b> &middot; ${b.model.split("/").slice(-1)[0]} at ${b.visits} visits` +
+      (b.remaining ? ` &middot; running <i>${b.current || ""}</i> (${b.remaining} left)` : "") + `</div>` +
+      `<table><thead><tr><th></th><th>Puzzle</th><th>Top</th><th>Answer</th><th>Visits on answer</th><th>Prior on answer</th></tr></thead><tbody>${rows}</tbody></table>`;
+  } else $("pzBatch").innerHTML = "";
+}
+function fillSelect(sel, items, value) {
+  if (sel.dataset.items !== items.join("|")) {
+    sel.innerHTML = items.map(m => `<option value="${m}">${m}</option>`).join("");
+    sel.dataset.items = items.join("|");
+  }
+  if (value && sel.value !== value) sel.value = value;
+}
+
+// rows are rebuilt on every poll, so hover/click are handled on the stable <tbody>
+$("cands").onmouseover = e => { const tr = e.target.closest("tr"); if (!tr) return;
+  const m = parseInt(tr.dataset.move); if (m !== hoverCand) { hoverCand = m; drawBoard(); } };
+$("cands").onmouseleave = () => { hoverCand = null; drawBoard(); };
+$("cands").onclick = e => { const tr = e.target.closest("tr"); if (tr && canClick()) post({type:"play", move: parseInt(tr.dataset.move)}); };
+
+// ------------------------------------------------------------------ win-rate graph
+const gc = $("graph"), gx = gc.getContext("2d");
+function drawGraph() {
+  fitCanvas(gc);
+  const W = gc.width, H = gc.height, pad = 6 * (window.devicePixelRatio || 1), G = S.graph || [];
+  gx.clearRect(0, 0, W, H);
+  gx.fillStyle = "#faf6ef"; gx.fillRect(0, 0, W, H);
+  const N = Math.max(G.length - 1, 1);
+  const X = i => pad + (W - 2*pad) * i / N, Y = v => pad + (H - 2*pad) * (1 - v);
+  gx.strokeStyle = "#d9cdbd"; gx.setLineDash([4, 4]); gx.beginPath(); gx.moveTo(pad, Y(.5)); gx.lineTo(W - pad, Y(.5)); gx.stroke(); gx.setLineDash([]);
+  const line = (key, color, width) => {
+    gx.strokeStyle = color; gx.lineWidth = width; gx.beginPath(); let started = false;
+    G.forEach((g, i) => { const v = g[key]; if (v === null || v === undefined) { started = false; return; }
+      if (!started) { gx.moveTo(X(i), Y(v)); started = true; } else gx.lineTo(X(i), Y(v)); });
+    gx.stroke();
+  };
+  line("net", "#b7a58f", 1.5 * (window.devicePixelRatio || 1));
+  line("mcts", "#1a5fd0", 2.5 * (window.devicePixelRatio || 1));
+  G.forEach((g, i) => { if (g.mcts !== null && g.mcts !== undefined) { gx.fillStyle = "#1a5fd0"; gx.beginPath(); gx.arc(X(i), Y(g.mcts), 2.2*(window.devicePixelRatio||1), 0, 7); gx.fill(); } });
+  gx.strokeStyle = "#d0021b"; gx.lineWidth = 1.5; gx.beginPath(); gx.moveTo(X(S.cursor), pad); gx.lineTo(X(S.cursor), H - pad); gx.stroke();
+  gx.fillStyle = "#7a7065"; gx.font = `${11*(window.devicePixelRatio||1)}px Segoe UI`; gx.fillText("B", 2, Y(.95)); gx.fillText("W", 2, Y(.02));
+}
+gc.onclick = e => {
+  const r = gc.getBoundingClientRect(), N = Math.max((S.graph || []).length - 1, 1);
+  post({type:"goto", index: Math.round((e.clientX - r.left) / r.width * N)});
+};
+
+// ------------------------------------------------------------------ input
+function pointAt(e) {
+  const r = cv.getBoundingClientRect(), g = geom();
+  const sx = (e.clientX - r.left) * cv.width / r.width, sy = (e.clientY - r.top) * cv.height / r.height;
+  const c = Math.round((sx - g.margin) / g.step), rr = Math.round((sy - g.margin) / g.step);
+  if (c < 0 || rr < 0 || c >= g.n || rr >= g.n) return null;
+  return rr * g.n + c;
+}
+cv.onmousemove = e => {
+  const p = pointAt(e);
+  const cand = S && S.search && $("ovSearch").checked ? S.search.candidates.find(x => x.move === p) : null;
+  const newCand = cand && e.shiftKey ? p : null;   // hold Shift over a candidate to preview its line
+  if (p !== hover || newCand !== hoverCand) { hover = p; hoverCand = newCand; drawBoard(); }
+};
+cv.onmouseleave = () => { hover = null; hoverCand = null; drawBoard(); };
+cv.onclick = e => {
+  const p = pointAt(e); if (p === null || !canClick()) return;
+  if (S.settings.mode !== "puzzle") { post({type:"play", move: p}); return; }
+  if (pzTool === "mark") post({type:"pz_mark", point: p});
+  else if (pzTool === "erase") post({type:"pz_stone", point: p, color: 0});
+  else { const col = pzTool === "B" ? 1 : -1; post({type:"pz_stone", point: p, color: S.board[p] === col ? 0 : col}); }
+};
+cv.oncontextmenu = e => {   // right-click erases in the puzzle editor
+  if (S && S.settings.mode === "puzzle") { e.preventDefault(); const p = pointAt(e); if (p !== null) post({type:"pz_stone", point: p, color: 0}); }
+};
+$("first").onclick = () => post({type:"goto", index: 0});
+$("back").onclick = () => post({type:"undo"});
+$("fwd").onclick = () => post({type:"redo"});
+$("last").onclick = () => post({type:"goto", index: 1e9});
+$("slider").oninput = e => post({type:"goto", index: parseInt(e.target.value)});
+$("pass").onclick = () => { if (canClick()) post({type:"pass"}); };
+$("toggleSearch").onclick = () => setv("analyzing", !S.settings.analyzing);
+$("model").onchange = e => setv("model", e.target.value);
+$("newGame").onclick = () => post({type:"new", size: parseInt($("size").value)});
+for (const id of ["ovSearch","ovPolicy","ovOwn","ovNums","ovCoords","labelMode"]) $(id).onchange = () => drawBoard();
+$("saveSgf").onclick = async () => {
+  const t = await (await fetch("/api/sgf")).text();
+  const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([t], {type:"application/x-go-sgf"}));
+  a.download = "go-zero-game.sgf"; a.click();
+};
+$("loadSgf").onchange = async e => { const f = e.target.files[0]; if (f) post({type:"load_sgf", text: await f.text()}); e.target.value = ""; };
+document.onkeydown = e => {
+  if (e.target.tagName === "INPUT" || e.target.tagName === "SELECT") return;
+  if (e.key === "ArrowLeft") post({type:"undo"});
+  else if (e.key === "ArrowRight") post({type:"redo"});
+  else if (e.key === "Home") post({type:"goto", index: 0});
+  else if (e.key === "End") post({type:"goto", index: 1e9});
+  else if (e.key === "p" || e.key === "P") { if (canClick()) post({type:"pass"}); }
+  else if (e.key === " ") { e.preventDefault(); setv("analyzing", !S.settings.analyzing); }
+  else if (e.key === "Shift" && hover !== null) cv.onmousemove({clientX: lastMouse.x, clientY: lastMouse.y, shiftKey: true});
+};
+let lastMouse = {x: 0, y: 0};
+document.onkeyup = e => { if (e.key === "Shift" && hoverCand !== null) { hoverCand = null; drawBoard(); } };
+document.addEventListener("mousemove", e => {
+  lastMouse = {x: e.clientX, y: e.clientY};
+  // drop a table-row preview as soon as the pointer is anywhere else (board Shift-preview handled by the canvas)
+  if (hoverCand !== null && !e.target.closest("#cands") && e.target !== cv) { hoverCand = null; drawBoard(); }
+});
+window.onresize = () => { if (S) { drawBoard(); drawGraph(); } };
+
+// ------------------------------------------------------------------ polling
+async function poll() {
+  if (busy) return; busy = true;
+  try { S = await (await fetch("/api/state")).json(); renderPanel(); drawBoard(); }
+  catch (e) { $("msg").textContent = "lost connection to the engine"; }
+  busy = false;
+}
+setInterval(poll, 300);
+poll();
+</script>
+</body>
+</html>

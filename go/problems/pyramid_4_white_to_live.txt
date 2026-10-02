@@ -1,0 +1,7 @@
+name: pyramid 4, white to live
+to_play: W
+black: C9 C8 C7 G7 C6 G6 J6 C5 G5 C4 D4 E4 F4 G4 B3 C3 G3 H3 J3 B2 H2 B1 H1
+white: B9 H9 J9 B8 H8 B7 H7 J7 B6 H6 B5 H5 B4 H4 J4 D3 E3 F3 C2 D2 F2 G2 C1 G1
+answer: E1
+note: living is worth more than reducing the top
+source: go-zero UI

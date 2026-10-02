@@ -1,0 +1,7 @@
+name: move order in killing, black to kill
+to_play: B
+black: H9 H8 H7 J7 E6 F6 G6 D5 H5 D4 J4 B3 C3 D3 F3 D2 E2 E1 F1 G1
+white: G9 E8 F8 G8 C7 D7 E7 A6 B6 C6 C5 F5 B4 C4 E4 H4 A3 E3 G3 H3 F2 G2 J2 H1 J1
+answer: J5
+note: made by colin
+source: go-zero UI

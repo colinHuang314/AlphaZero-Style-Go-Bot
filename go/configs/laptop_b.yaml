@@ -1,0 +1,38 @@
+# Run B (laptop, Sat Oct 3 after CGOS): configs/9x9.yaml plus ONE change, lr 0.002 -> 0.0006
+# (earlier drops: 0.02 -> 0.006 gave +190 Elo, 0.006 -> 0.002 gave +81, then a plateau on night 7).
+# Starts from a copy of runs/9x9_a at cycle 471 (runs/9x9_b). Compare with run A (cloud, value blend).
+net: {board_size: 9, blocks: 10, channels: 128, head_channels: 32, value_hidden: 128}
+selfplay:
+  num_parallel: 256
+  full_visits: 1000
+  fast_visits: 60
+  full_prob: 0.25
+  temp_start: 1.0
+  temp_end: 0.25
+  temp_halflife: 8
+  resign_enabled: false
+  mcts: {c_puct: 1.25, fpu_reduction: 0.2, root_fpu_reduction: 0.0, dirichlet_alpha: 0.15, dirichlet_eps: 0.25}
+train:
+  batch_size: 256
+  optimizer: sgd
+  lr: 0.0006               # run B's one change
+  momentum: 0.9
+  weight_decay: 0.0001
+  warmup_steps: 300
+  ownership_weight: 1.0
+  score_weight: 0.5
+loop:
+  cycle_samples: 5000
+  train_ratio: 4.0
+  min_buffer: 20000
+  min_window: 25000
+  max_window: 400000
+  buffer_capacity: 500000
+  snapshot_every: 10
+  buffer_save_every: 5
+  selfplay_workers: 1      # set from the laptop benchmark (tools/sp_bench.py) before starting
+eval:
+  every_cycles: 10
+  anchors: [runs/eval_night6/candidate_c439.pt]
+  num_pairs: 32
+  visits: 100

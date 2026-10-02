@@ -1,0 +1,37 @@
+# Main 9x9 run. Settings follow AlphaZero / KataGo defaults scaled down for one laptop GPU.
+# Every value here is a starting point; see NOTES.md for why each one is set and how to adjust.
+net: {board_size: 9, blocks: 10, channels: 128, head_channels: 32, value_hidden: 128}
+selfplay:
+  num_parallel: 256        # games searched together (bigger GPU batches)
+  full_visits: 1000        # searches whose visit counts become policy targets (300 -> 600 at cycle 130; 600 -> 1000 at cycle 341)
+  fast_visits: 60          # cheap searches for the other moves (playout cap randomization)
+  full_prob: 0.25
+  temp_start: 1.0
+  temp_end: 0.25
+  temp_halflife: 8
+  resign_enabled: false    # enable once value head is calibrated (check sp.resign_false_pos)
+  mcts: {c_puct: 1.25, fpu_reduction: 0.2, root_fpu_reduction: 0.0, dirichlet_alpha: 0.15, dirichlet_eps: 0.25}
+train:
+  batch_size: 256
+  optimizer: sgd
+  lr: 0.002                # night 6: dropped from 0.006 (plateau: ~0.7 Elo/cycle on nights 4-5); night 2: 0.02 -> 0.006
+  momentum: 0.9
+  weight_decay: 0.0001
+  warmup_steps: 300
+  ownership_weight: 1.0
+  score_weight: 0.5
+loop:
+  cycle_samples: 5000
+  train_ratio: 4.0
+  min_buffer: 20000
+  min_window: 25000
+  max_window: 400000
+  buffer_capacity: 500000
+  snapshot_every: 10
+  buffer_save_every: 5
+eval:
+  every_cycles: 10
+  # measure against the latest frozen milestone (night 6 = c439, which beats c392 61.5% and c341 73%)
+  anchors: [runs/eval_night6/candidate_c439.pt]
+  num_pairs: 32
+  visits: 100

@@ -1,0 +1,6 @@
+name: easy, liberty shortage, black to kill
+to_play: B
+black: G9 H9 D8 E8 F8 G8 F7 F6 J6 F5 J5 F4 G4 E3 F3 D2 F2 G2 H1
+white: C8 H8 J8 C7 G7 C6 G6 H6 C5 G5 C4 H4 J4 C3 G3 H3 C2 H2
+answer: J7
+source: go-zero UI

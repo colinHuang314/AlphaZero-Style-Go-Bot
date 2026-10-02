@@ -1,0 +1,6 @@
+name: blindspot11, black to kill without ko
+to_play: B
+black: D9 E9 D8 F8 G8 C7 D7 H7 A6 B6 C6 H6 G5 G4 H4 G3 F2 H2 F1
+white: C9 B8 C8 E8 B7 E7 F7 G7 D6 E6 G6 A5 B5 C5 D5 F5 F4 F3 E2 E1
+answer: B9
+source: go-zero UI

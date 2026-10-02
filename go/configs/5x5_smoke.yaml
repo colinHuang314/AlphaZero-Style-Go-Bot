@@ -1,0 +1,21 @@
+# Tiny end-to-end test of the loop on 5x5 (minutes, not hours).
+net: {board_size: 5, blocks: 4, channels: 32, head_channels: 16, value_hidden: 32}
+selfplay:
+  num_parallel: 64
+  full_visits: 64
+  fast_visits: 16
+  full_prob: 0.25
+  temp_halflife: 4
+  mcts: {c_puct: 1.25, dirichlet_alpha: 0.4}
+train: {batch_size: 128, lr: 0.02, warmup_steps: 50}
+loop:
+  cycle_samples: 600
+  train_ratio: 4
+  min_buffer: 1200
+  min_window: 3000
+  max_window: 30000
+  buffer_capacity: 50000
+  val_capacity: 5000
+  snapshot_every: 2
+  buffer_save_every: 2
+eval: {every_cycles: 3, anchors: [anchors/AZNET5_epoch_970.pt], num_pairs: 8, visits: 32}

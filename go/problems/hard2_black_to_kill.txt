@@ -1,0 +1,6 @@
+name: hard2, black to kill
+to_play: B
+black: G8 H7 G6 G5 B4 F4 C3 F3 E2 F2 G2
+white: E8 D7 B6 C6 D5 H5 G4 G3 H2 G1 H1
+answer: J2
+source: go-zero UI

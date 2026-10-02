@@ -1,0 +1,6 @@
+name: simple, black to live
+to_play: B
+black: E9 E8 F8 C7 G7 H7 J7 E6 F6 H4 J4 G3 G2 G1
+white: G5 H5 J5 B4 F4 G4 C3 F3 F2 F1
+answer: J2
+source: go-zero UI

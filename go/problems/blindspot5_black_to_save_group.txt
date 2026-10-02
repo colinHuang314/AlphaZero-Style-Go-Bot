@@ -1,0 +1,6 @@
+name: blindspot5, black to save group
+to_play: B
+black: H9 C8 F8 H8 B7 D7 G7 H7 D6 E6 G6 B5 C5 F5 C3 C2 D2 E2
+white: F9 G9 D8 E8 E7 F7 F6 H6 D5 E5 G5 J5 G4 H4 E3 F2 G2
+answer: D9
+source: go-zero UI

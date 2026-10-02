@@ -1,0 +1,7 @@
+name: disconnected in corner, black to live
+to_play: B
+black: B9 C8 A7 C7 J7 B6 F6 G6 H6 E5 H5 J5 D4 G4 D3 F3 C2 E2 C1 E1
+white: D9 B8 D8 D7 F7 G7 H7 C6 D6 A5 B5 C5 C4 B3 C3
+answer: A8
+note: made by Colin
+source: go-zero UI

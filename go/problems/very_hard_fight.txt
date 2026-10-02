@@ -1,0 +1,6 @@
+name: very hard fight
+to_play: W
+black: E7 D6 H6 H5 C4 G3 F2 G2
+white: F7 F6 G5 F4 D3 F3 E2
+answer: C5
+source: go-zero UI

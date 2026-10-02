@@ -1,0 +1,45 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+.pytest_cache/
+*.egg-info/
+
+# Model weights (publish these as GitHub Release assets instead)
+*.pt
+*.pth
+*.onnx
+# ...except the original AZNet checkpoints go-zero uses as fixed opponents
+!go/anchors/*.pt
+
+# Training artifacts
+checkpoints/
+data/
+replay_buffer/
+runs/
+dist/
+*.npz
+*.bin
+*.prof
+*.tar.gz
+
+# numba cache
+*.nbi
+*.nbc
+
+# go-zero scratch scripts
+go/tools/_tmp_*
+
+# .NET build output
+bin/
+obj/
+
+# Editors / OS
+.vscode/
+.vs/
+.idea/
+.claude/
+Thumbs.db
+.DS_Store

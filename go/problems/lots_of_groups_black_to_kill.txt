@@ -1,0 +1,6 @@
+name: lots of groups, black to kill
+to_play: B
+black: E8 F8 G8 H8 D7 E7 D6 G6 H6 D5 G5 D4 F4 H4 D3 F3 D2 F2 G2 G1 H1 J1
+white: C8 C7 F7 G7 H7 J7 C6 F6 C5 F5 H5 C4 G4 C3 G3 H3 C2 H2
+answer: J4
+source: go-zero UI

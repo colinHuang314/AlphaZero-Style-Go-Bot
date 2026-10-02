@@ -1,0 +1,10 @@
+# Python 3.12. For a CUDA build of torch, install it first from the PyTorch index, e.g.
+#   pip install torch==2.13.0 --index-url https://download.pytorch.org/whl/cu126
+
+# go/ (go-zero)
+numpy==2.5.2
+numba==0.67.0
+torch==2.13.0
+PyYAML==6.0.3
+tensorboard==2.21.0  # optional: training-loop logging
+pytest==9.1.1

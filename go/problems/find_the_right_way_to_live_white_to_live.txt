@@ -1,0 +1,6 @@
+name: find the right way to live, white to live
+to_play: W
+black: G9 J9 G8 J8 B7 D7 E7 F7 H7 F5 G4 G3 H3 H2 H1
+white: F8 G7 G6 H6 J6 B5 B4 D4 H4 C3 D2 E2 F2 G2
+answer: J7
+source: go-zero UI

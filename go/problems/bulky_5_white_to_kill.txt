@@ -1,0 +1,7 @@
+name: bulky 5, white to kill
+to_play: W
+black: E9 C8 D8 F8 G8 A7 G7 H7 A6 H6 A5 E5 F5 A4 C4 D4 E4 F4 A3 C3 D3 E3 F3 A2 C2 F2 G2 C1 G1
+white: E7 C6 D6 E6 F6 G6 B5 G5 H5 B4 G4 J4 B3 G3 H3 B2 D2 E2 H2 B1 H1
+answer: E1
+note: made by colin
+source: go-zero UI

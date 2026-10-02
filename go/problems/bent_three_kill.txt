@@ -1,0 +1,7 @@
+name: bent three in the corner, black kills
+to_play: B
+black: B9 B8 A7 B7 B6 C6 C5 A4 B4 C4 E4 F4 G4 H4 J4 C3 D3 D2 D1
+white: C9 F9 C8 F8 G8 C7 D7 G7 D6 E6 F6 G6 D5 E5 F5 G5 H5 J5 D4 A3 B3 B2 C2 C1
+answer: A1
+note: built by Claude, verified with the rules engine; artificial (empty board elsewhere)
+source: go-zero UI

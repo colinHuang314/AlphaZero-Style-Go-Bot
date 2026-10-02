@@ -1,0 +1,6 @@
+name: med5, white to kill
+to_play: W
+black: E9 F9 E8 C7 E7 B6 E6 F6 C5 E5 J5 D4 E4 G4 H4 C3 D3 G3 C2 F2 G2
+white: G9 H9 F8 G8 J8 F7 H7 G6 F5 G5 H5 F4 E3 F3 D2 E2
+answer: F1
+source: go-zero UI

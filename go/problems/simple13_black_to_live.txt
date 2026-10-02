@@ -1,0 +1,6 @@
+name: simple13, black to live
+to_play: B
+black: E8 F8 B7 G7 H7 B6 H6 C5 B4 D4 C3 E3 D2 F2 G1
+white: E9 B8 D8 C7 D7 E7 F7 D6 G6 E5 G5 H5 F4 G3 H3 G2
+answer: G9
+source: go-zero UI
