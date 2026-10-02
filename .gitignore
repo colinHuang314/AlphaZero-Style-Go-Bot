@@ -32,6 +32,21 @@ dist/
 # go-zero scratch scripts
 go/tools/_tmp_*
 
+# Chess: local data, downloads and third-party code
+chess/Models/
+chess/Human Data/
+chess/syzygy/
+*.rtbw
+*.rtbz
+chess/stockfish/
+chess/FastChess/
+chess/Syzygy-Tablebase-Downloader-main/
+chess/SelfPlay Game PGNs/
+chess/Arena Game PGNs/
+chess/paths/
+chess/saved*data*
+chess/board.svg
+
 # .NET build output
 bin/
 obj/
