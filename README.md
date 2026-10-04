@@ -2,7 +2,7 @@
 
 A Go AI built from scratch following the AlphaGo Zero approach: a PyTorch policy/value network guiding Monte Carlo Tree Search, trained through self-play. I later adapted the same approach to chess: see [AlphaZero-Chess](https://github.com/colinHuang314/AlphaZero-Chess).
 
-![Go analysis UI](AlphaZero-UI-Image2.png)
+![Go analysis UI](docs/demo.gif)
 
 ## Overview (`go/`)
 - **Network:** ResNet (10 residual blocks, 128 channels) with policy, value, score and ownership heads; 16 input planes relative to the player to move (stones, group liberties, illegal points, last 4 moves)
