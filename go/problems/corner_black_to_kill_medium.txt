@@ -1,0 +1,6 @@
+name: corner black to kill medium
+to_play: B
+black: B6 H6 B5 D5 H5 E4 F4 G4 C3 D3 H3 C2 J1
+white: F8 G8 H8 J8 A7 B7 C7 D7 E7 E3 F3 G3 D2 H2 D1
+answer: J2
+source: go-zero UI

@@ -28,8 +28,11 @@ def main():
     ap.add_argument("--workers", type=int, nargs="+", default=[1, 2, 4, 6])
     ap.add_argument("--seconds", type=float, default=120)
     ap.add_argument("--warmup", type=float, default=30)
+    ap.add_argument("--num-parallel", type=int, default=None, help="games in flight in total (default: config)")
     args = ap.parse_args()
     cfg = load_config(args.config)
+    if args.num_parallel:
+        cfg.selfplay.num_parallel = args.num_parallel
     model, _ = load_model(args.model, torch.device("cuda" if torch.cuda.is_available() else "cpu"))
     results = []
     with tempfile.TemporaryDirectory() as tmp:

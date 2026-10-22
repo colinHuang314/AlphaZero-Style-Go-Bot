@@ -13,6 +13,8 @@ from dataclasses import dataclass
 import numpy as np
 from numba import njit
 
+from ..go.symmetry import permutations
+
 
 @dataclass
 class MCTSConfig:
@@ -21,22 +23,81 @@ class MCTSConfig:
     root_fpu_reduction: float = 0.0  # AlphaZero-like optimism at the root (helps noise explore)
     dirichlet_alpha: float = 0.15    # ~10 / typical number of legal moves on 9x9
     dirichlet_eps: float = 0.25
+    symmetry_prune: bool = True      # in symmetric positions search one move per symmetry class
+
+
+@njit(cache=True)
+def _symmetry_mask(board, perms):
+    """Bit k set (k = 1..7) if symmetry k leaves the flat board unchanged. Exits early on asymmetric boards."""
+    mask = 0
+    for k in range(1, perms.shape[0]):
+        same = True
+        for i in range(board.shape[0]):
+            if board[perms[k, i]] != board[i]:
+                same = False
+                break
+        if same:
+            mask |= 1 << k
+    return mask
+
+
+def symmetry_prune(state, moves, priors):
+    """Keep one move per symmetry class of a symmetric position, with the class's summed prior.
+
+    Moves that map onto each other under a symmetry of the board lead to equivalent positions, so
+    searching all of them splits the visits for nothing (an empty 9x9 board has 81 moves but only 15
+    different ones). The previous board must have the symmetry too, so a ko can't make two moves differ.
+    The kept move is the one nearest the top-right corner (smallest row - col, then smallest row): the
+    bot opens in the upper right, as people do. Returns (moves, priors, orbits); orbits maps each kept
+    index to the array of its class's legal moves (None when nothing was pruned).
+    """
+    r = state.rules
+    perms = permutations(r.n)
+    mask = _symmetry_mask(state.board, perms)
+    if mask and state.prev is not None:
+        mask &= _symmetry_mask(state.prev.board, perms)
+    if not mask:
+        return moves, priors, None
+    ks = [0] + [k for k in range(1, 8) if mask >> k & 1]
+    legal = {int(m): i for i, m in enumerate(moves)}
+    keep, kept_p, orbits, done = [], [], {}, set()
+    for i, m in enumerate(moves):
+        m = int(m)
+        if m in done:
+            continue
+        if m == r.N:                      # pass: its own class
+            members = [m]
+        else:
+            members = sorted({int(perms[k][m]) for k in ks if int(perms[k][m]) in legal})
+        done.update(members)
+        rep = min(members, key=lambda q: (q // r.n - q % r.n, q // r.n)) if m != r.N else m
+        orbits[len(keep)] = np.array(members, dtype=moves.dtype)
+        keep.append(rep)
+        kept_p.append(sum(float(priors[legal[q]]) for q in members))
+    order = np.argsort(keep, kind="stable")   # keep moves sorted like the legal-move lists
+    moves2 = np.array(keep, dtype=moves.dtype)[order]
+    priors2 = np.array(kept_p, dtype=np.float32)[order]
+    orbits2 = {j: orbits[int(o)] for j, o in enumerate(order)}
+    return moves2, priors2, orbits2
 
 
 class Node:
     __slots__ = ("state", "moves", "P", "P_raw", "Nc", "Wc", "N", "children",
-                 "v_net", "expanded", "terminal", "terminal_value")
+                 "v_net", "expanded", "terminal", "terminal_value", "orbits")
 
     def __init__(self, state):
         self.state = state
         self.expanded = False
         self.N = 0
+        self.orbits = None
         self.terminal = state.is_terminal()
         if self.terminal:
             s = state.score()  # a draw (possible only with integer komi, e.g. CGOS 9x9's 7.0) is worth 0
             self.terminal_value = 0.0 if s == 0 else (1.0 if (s > 0) == (state.to_play == 1) else -1.0)
 
-    def expand(self, moves, priors, value):
+    def expand(self, moves, priors, value, prune=False):
+        if prune:
+            moves, priors, self.orbits = symmetry_prune(self.state, moves, priors)
         self.moves = moves
         self.P = priors
         self.P_raw = priors
@@ -63,10 +124,24 @@ class Node:
             raise ValueError(f"move {move} not legal at this node")
         return self.child(int(hits[0]))
 
+    def child_or_new(self, move):
+        """The subtree after `move` if the tree has it, else a fresh node (unexpanded node, or a move
+        that symmetry pruning folded into an equivalent one: that subtree is in another orientation)."""
+        if self.expanded and np.any(self.moves == move):
+            return self.child_by_move(move)
+        return Node(self.state.play(int(move)))
+
     def visit_distribution(self, n_actions):
+        """Visit shares per action; a pruned symmetry class's visits are split evenly over its moves,
+        so policy targets stay symmetric."""
         pi = np.zeros(n_actions, dtype=np.float32)
         if self.expanded and self.N > 0:
-            pi[self.moves] = self.Nc / self.Nc.sum()
+            share = self.Nc / self.Nc.sum()
+            if self.orbits is None:
+                pi[self.moves] = share
+            else:
+                for i, members in self.orbits.items():
+                    pi[members] = share[i] / len(members)
         return pi
 
 
@@ -192,12 +267,11 @@ class BatchedMCTS:
             groups[id(ev)][2].append(path)
         return [(ls, ps, ev.submit([l.state for l in ls])) for ev, ls, ps in groups.values()]
 
-    @staticmethod
-    def _complete(job):
+    def _complete(self, job):
         leaves, paths, result = job
         priors, values = result()
         for leaf, (moves, p), v in zip(leaves, priors, values):
-            leaf.expand(moves, p, v)
+            leaf.expand(moves, p, v, prune=self.cfg.symmetry_prune)
         for path, v in zip(paths, values):
             if path is not None:
                 backpropagate(path, v)
@@ -223,7 +297,7 @@ def search_single(root, evaluator, cfg, target_visits, leaf_batch=16, virtual_lo
         return 0
     if not root.expanded:
         priors, values = evaluator.evaluate([root.state])
-        root.expand(priors[0][0], priors[0][1], values[0])
+        root.expand(priors[0][0], priors[0][1], values[0], prune=cfg.symmetry_prune)
         evals += 1
     while root.N < target_visits and not (should_stop and should_stop()):
         leaves, paths, seen = [], [], set()
@@ -250,7 +324,7 @@ def search_single(root, evaluator, cfg, target_visits, leaf_batch=16, virtual_lo
         evals += len(leaves)
         for leaf, path, (moves, p), v in zip(leaves, paths, priors, values):
             _apply_virtual_loss(path, -virtual_loss)
-            leaf.expand(moves, p, v)
+            leaf.expand(moves, p, v, prune=cfg.symmetry_prune)
             backpropagate(path, v)
     return evals
 

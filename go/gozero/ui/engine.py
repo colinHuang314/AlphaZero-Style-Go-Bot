@@ -19,9 +19,11 @@ from ..mcts.evaluator import LegacyEvaluator, NetEvaluator
 from ..mcts.mcts import MCTSConfig, Node, pick_move, principal_variation, search_single
 from ..nn.model import load_model
 from ..selfplay.selfplay import GameRecord, to_sgf
+from .katago import KataGo, compare, parse
 from .puzzles import PuzzleBench
 
-MODES = ("analyze", "play", "watch", "policy", "sandbox", "puzzle")
+MODES = ("analyze", "play", "watch", "policy", "sandbox", "puzzle", "compare")
+LADDER = (1, 16, 100, 800, 3200)   # Compare tab: visit budgets for both engines
 
 
 class LoadedModel:
@@ -84,9 +86,13 @@ class UIEngine:
             "bot_visits": 800,
             "watch_visits": 400,
             "max_visits": 20000,    # analysis stops here
+            "compare_visits": 3200,  # Compare tab: visits for go-zero and for KataGo (equal)
             "analyzing": True,
             "bot_delay": 0.4,
         }
+        self.kata = KataGo(root_dir)
+        self.kata_active = None
+        self.ladder = None
         self.new_game(9)
         self.puzzle = PuzzleBench(self, os.path.join(root_dir, "problems"))
         models = list_models(root_dir)
@@ -111,6 +117,10 @@ class UIEngine:
             self.trees = {}       # (cursor, model path) -> Node
             self.netinfo = {}     # (cursor, model path) -> raw net output
             self.graph = {}       # cursor -> {"net": black winrate, "mcts": black winrate, "visits": n}
+            self.kata_q = {}      # (cursor, visits) -> KataGo query id
+            self.kata_graph = {}  # cursor -> KataGo's black win rate
+            self._stop_ladder()
+            self._kata_stop()
             self.message = ""
 
     @property
@@ -147,6 +157,10 @@ class UIEngine:
                 del d[k]
         for k in [k for k in self.graph if k > self.cursor]:
             del self.graph[k]
+        for k in [k for k in self.kata_q if k[0] > self.cursor]:
+            self.kata.forget(self.kata_q.pop(k))
+        for k in [k for k in self.kata_graph if k > self.cursor]:
+            del self.kata_graph[k]
 
     def play(self, move):
         with self.lock:
@@ -163,7 +177,7 @@ class UIEngine:
                 # carry every model's search tree into the new position
                 for (c, path), tree in list(self.trees.items()):
                     if c == self.cursor and tree.expanded:
-                        self.trees[(c + 1, path)] = tree.child_by_move(move)
+                        self.trees[(c + 1, path)] = tree.child_or_new(move)
             self.cursor += 1
             self.message = ""
             return True, ""
@@ -226,6 +240,8 @@ class UIEngine:
             st = self.state
             if st.is_terminal():
                 return False
+            if mode == "compare":
+                return self._tick_compare(model)
             bots_turn = (mode == "watch") or (mode == "play" and st.to_play != s["human_color"])
             at_end = self.cursor == len(self.moves)
             if bots_turn and at_end:
@@ -246,6 +262,116 @@ class UIEngine:
                 time.sleep(s["bot_delay"] if mode == "watch" else 0.05)
                 return True
             return False
+
+    # ------------------------------------------------------------ compare tab (KataGo)
+    def _tick_compare(self, model):
+        s = self.settings
+        if not s["analyzing"]:
+            self._kata_stop()
+            return False
+        self._kata_follow()
+        if self._ladder_step(model):
+            return True
+        tree = self._tree(model)
+        if tree.N < s["compare_visits"]:
+            self.eval_count += search_single(tree, model.ev, self.mcts_cfg, min(s["compare_visits"], tree.N + 48),
+                                             leaf_batch=16)
+            self._record_graph(tree)
+            return True
+        return False
+
+    def _kata_follow(self):
+        """Keep one KataGo query on the current position (at the Compare visits); stop the one we left."""
+        if not self.kata.available:
+            return
+        key = (self.cursor, self.settings["compare_visits"])
+        qid = self.kata_q.get(key)
+        res = self.kata.result(qid) if qid else None
+        # a query stopped early when we moved away: ask again when we come back
+        stale = (res is not None and res.get("done") and "error" not in res
+                 and res.get("rootInfo", {}).get("visits", 0) < 0.95 * key[1])
+        if qid is None or stale:
+            if self.kata_active:
+                self.kata.terminate(self.kata_active)
+            if qid:
+                self.kata.forget(qid)
+            qid = self.kata.query(self.moves[:self.cursor], self.n, self.state.rules.komi, key[1])
+            self.kata_q[key] = qid
+        elif qid != self.kata_active and self.kata_active:
+            self.kata.terminate(self.kata_active)
+        self.kata_active = qid
+        info = parse(self.kata.result(qid), self.n, self.state.to_play)
+        if info and "error" not in info and info["visits"] > 0:
+            self.kata_graph[self.cursor] = info["black_winrate"]
+
+    def _kata_stop(self):
+        if self.kata_active:
+            self.kata.terminate(self.kata_active)
+            self.kata_active = None
+
+    def _start_ladder(self):
+        st = self.state
+        if not self.kata.available:
+            return False, "KataGo not found in tools/katago/"
+        if st.is_terminal():
+            return False, "the game is over"
+        self._stop_ladder()
+        self.ladder = {"cursor": self.cursor, "i": 0, "node": None, "ours": {},
+                       "kata": {b: self.kata.query(self.moves[:self.cursor], self.n, st.rules.komi, b, report_every=0)
+                                for b in LADDER}}
+        return True, ""
+
+    def _stop_ladder(self):
+        if self.ladder:
+            for qid in self.ladder["kata"].values():
+                self.kata.terminate(qid)
+        self.ladder = None
+
+    def _ladder_step(self, model):
+        """One chunk of go-zero's side of the visits ladder: a fresh search per budget (no tree reuse, like KataGo)."""
+        lad = self.ladder
+        if not lad or lad["i"] >= len(LADDER):
+            return False
+        if lad["cursor"] != self.cursor:
+            self._stop_ladder()
+            return False
+        b = LADDER[lad["i"]]
+        if b == 1:   # one visit = the raw network
+            net = self._net(model, self.cursor)
+            lad["ours"][b] = {"move": int(np.argmax(net["policy"])), "winrate": (net["value"] + 1) / 2}
+        else:
+            node = lad["node"] = lad["node"] or Node(self.state)
+            if node.N < b:
+                self.eval_count += search_single(node, model.ev, self.mcts_cfg, min(b, node.N + 64), leaf_batch=16)
+                return True
+            m = pick_move(node, 0.0, np.random.default_rng(0))
+            lad["ours"][b] = {"move": int(m), "winrate": (node.q() + 1) / 2}
+            lad["node"] = None
+        lad["i"] += 1
+        return True
+
+    def _ladder_info(self, kata_main):
+        lad = self.ladder
+        if not lad or lad["cursor"] != self.cursor:
+            return None
+        n, tp = self.n, self.state.to_play
+        main = {c["move"]: c for c in kata_main["candidates"]} if kata_main and kata_main.get("candidates") else {}
+        rows = []
+        for b in LADDER:
+            o = lad["ours"].get(b)
+            k = parse(self.kata.result(lad["kata"][b]), n, tp)
+            row = {"visits": b, "ours": None, "kata": None}
+            if o:
+                judged = main.get(o["move"])   # KataGo's main search (Compare visits) judges our move
+                row["ours"] = {"move": o["move"], "winrate": o["winrate"],
+                               "kata_winrate": judged["winrate"] if judged else None}
+            if k and "error" not in k and k.get("done") and k["candidates"]:
+                row["kata"] = {"move": k["candidates"][0]["move"], "winrate": k["winrate"]}
+            elif k and "error" in k:
+                row["kata"] = {"error": k["error"]}
+            rows.append(row)
+        return {"rows": rows, "running": lad["i"] < len(LADDER) or any(r["kata"] is None for r in rows),
+                "judge_visits": kata_main["visits"] if main else 0}
 
     def _record_graph(self, tree):
         if tree.N < 1:
@@ -295,6 +421,8 @@ class UIEngine:
                 tree = self.trees.get((self.cursor, model.path))
                 if tree is not None and tree.expanded and tree.N > 0 and s["mode"] != "policy":
                     out["search"] = self._search_info(tree)
+                if s["mode"] == "compare":
+                    out["kata"] = self._kata_info(out.get("search"), net["policy"])
             base = self.get_model(s["model"]) if s["model"] else None
             if base is not None:
                 g = []
@@ -304,7 +432,8 @@ class UIEngine:
                     if info is not None:
                         net_b = (info["value"] * self.states[i].to_play + 1) / 2
                     gm = self.graph.get(i, {})
-                    g.append({"net": net_b, "mcts": gm.get("mcts"), "visits": gm.get("visits", 0)})
+                    g.append({"net": net_b, "mcts": gm.get("mcts"), "visits": gm.get("visits", 0),
+                              "kata": self.kata_graph.get(i)})
                 out["graph"] = g
             return out
 
@@ -323,6 +452,23 @@ class UIEngine:
         q = tree.q()
         return {"visits": int(tree.N), "winrate": (q + 1) / 2,
                 "black_winrate": ((q if st.to_play == 1 else -q) + 1) / 2, "candidates": cands}
+
+    def _kata_info(self, ours, net_policy):
+        k = self.kata
+        info = {"available": k.available, "net": k.net_name, "error": k.error,
+                "target": self.settings["compare_visits"]}
+        if not k.available:
+            return info
+        qid = self.kata_q.get((self.cursor, self.settings["compare_visits"]))
+        res = parse(k.result(qid), self.n, self.state.to_play) if qid else None
+        if res and "error" in res:
+            info["error"] = res["error"]
+        elif res:
+            info.update(res)
+            info.pop("policy", None)
+            info["agree"] = compare(ours, res, net_policy)
+        info["ladder"] = self._ladder_info(res if res and "error" not in res else None)
+        return info
 
     def _captures(self):
         """Stones captured by each color so far (along the current line)."""
@@ -377,10 +523,16 @@ class UIEngine:
                     if key == "mode":
                         # no hints on your own turn when playing the bot; analysis on elsewhere
                         self.settings["analyzing"] = val != "play"
+                        if val != "compare":   # free the GPU: stop KataGo's searches
+                            self._kata_stop()
+                            self._stop_ladder()
                         if val == "play":
                             self._truncate()
             else:
                 ok, msg = False, f"unknown setting {key}"
+        elif t == "ladder":
+            with self.lock:
+                ok, msg = self._start_ladder()
         elif t == "load_sgf":
             ok, msg = self.load_sgf(a["text"])
         else:

@@ -5,6 +5,7 @@ correct answers, save it as a problem file (problems/*.txt, the format
 tools/diagnose.py reads), and run any model on one puzzle or on all of them.
 """
 import os
+from dataclasses import replace
 
 import numpy as np
 
@@ -21,6 +22,9 @@ class PuzzleBench:
         self.n = n
         self.clear()
         self.batch = None
+        # no symmetry pruning: many corner shapes are mirror-symmetric, and pruning would fold a marked
+        # answer into its mirror image and score it wrong (tools/diagnose.py does the same)
+        self.cfg = replace(engine.mcts_cfg, symmetry_prune=False)
 
     # ------------------------------------------------------------ editing
     def clear(self):
@@ -147,14 +151,14 @@ class PuzzleBench:
                     return True
                 b["current"] = (prob, Node(prob["state"]))
             prob, root = b["current"]
-            eng.eval_count += search_single(root, model.ev, eng.mcts_cfg, min(b["visits"], root.N + 64), leaf_batch=16)
+            eng.eval_count += search_single(root, model.ev, self.cfg, min(b["visits"], root.N + 64), leaf_batch=16)
             if root.N >= b["visits"] or root.terminal:
                 b["results"].append(self._score(prob, root, model))
                 b["current"] = None
             return True
         if self.tree is not None and self.tree.N < self.target and not self.tree.terminal:
             model = eng.get_model(self.tree_model)
-            eng.eval_count += search_single(self.tree, model.ev, eng.mcts_cfg,
+            eng.eval_count += search_single(self.tree, model.ev, self.cfg,
                                             min(self.target, self.tree.N + 48), leaf_batch=16)
             return True
         return False

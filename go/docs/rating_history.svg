@@ -1,0 +1,82 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 470" width="900" height="470" font-family="-apple-system,Segoe UI,Helvetica,Arial,sans-serif" role="img" aria-label="go-zero CGOS 9x9 rating over time: about 2200 on Sep 25, 2630 on CGOS on Oct 2, 2854 on CGOS on Oct 21">
+<rect width="900" height="470" fill="#ffffff"/>
+<text x="64" y="26" font-size="16" fill="#0b0b0b" font-weight="600">go-zero strength over four weeks of laptop training</text>
+<rect x="379.0" y="52" width="299.8" height="348" fill="#0b0b0b" fill-opacity="0.04"/>
+<line x1="64" x2="876" y1="400.0" y2="400.0" stroke="#e1e0d9"/>
+<text x="56" y="404.0" font-size="11" fill="#898781" text-anchor="end">2100</text>
+<line x1="64" x2="876" y1="365.2" y2="365.2" stroke="#e1e0d9"/>
+<text x="56" y="369.2" font-size="11" fill="#898781" text-anchor="end">2200</text>
+<line x1="64" x2="876" y1="330.4" y2="330.4" stroke="#e1e0d9"/>
+<text x="56" y="334.4" font-size="11" fill="#898781" text-anchor="end">2300</text>
+<line x1="64" x2="876" y1="295.6" y2="295.6" stroke="#e1e0d9"/>
+<text x="56" y="299.6" font-size="11" fill="#898781" text-anchor="end">2400</text>
+<line x1="64" x2="876" y1="260.8" y2="260.8" stroke="#e1e0d9"/>
+<text x="56" y="264.8" font-size="11" fill="#898781" text-anchor="end">2500</text>
+<line x1="64" x2="876" y1="226.0" y2="226.0" stroke="#e1e0d9"/>
+<text x="56" y="230.0" font-size="11" fill="#898781" text-anchor="end">2600</text>
+<line x1="64" x2="876" y1="191.2" y2="191.2" stroke="#e1e0d9"/>
+<text x="56" y="195.2" font-size="11" fill="#898781" text-anchor="end">2700</text>
+<line x1="64" x2="876" y1="156.4" y2="156.4" stroke="#e1e0d9"/>
+<text x="56" y="160.4" font-size="11" fill="#898781" text-anchor="end">2800</text>
+<line x1="64" x2="876" y1="121.6" y2="121.6" stroke="#e1e0d9"/>
+<text x="56" y="125.6" font-size="11" fill="#898781" text-anchor="end">2900</text>
+<line x1="64" x2="876" y1="86.8" y2="86.8" stroke="#e1e0d9"/>
+<text x="56" y="90.8" font-size="11" fill="#898781" text-anchor="end">3000</text>
+<line x1="64" x2="876" y1="52.0" y2="52.0" stroke="#e1e0d9"/>
+<text x="56" y="56.0" font-size="11" fill="#898781" text-anchor="end">3100</text>
+<text x="75.7" y="68" font-size="11" fill="#898781">10 blocks</text>
+<text x="388.3" y="68" font-size="11" fill="#898781">15 blocks</text>
+<text x="687.0" y="68" font-size="11" fill="#898781">20 blocks</text>
+<text x="92.0" y="420" font-size="11" fill="#898781" text-anchor="middle">Sep 25</text>
+<text x="204.0" y="420" font-size="11" fill="#898781" text-anchor="middle">Sep 29</text>
+<text x="316.0" y="420" font-size="11" fill="#898781" text-anchor="middle">Oct 3</text>
+<text x="428.0" y="420" font-size="11" fill="#898781" text-anchor="middle">Oct 7</text>
+<text x="540.0" y="420" font-size="11" fill="#898781" text-anchor="middle">Oct 11</text>
+<text x="652.0" y="420" font-size="11" fill="#898781" text-anchor="middle">Oct 15</text>
+<text x="764.0" y="420" font-size="11" fill="#898781" text-anchor="middle">Oct 19</text>
+<line x1="64" x2="876" y1="400" y2="400" stroke="#c3c2b7"/>
+<line x1="64" x2="876" y1="86.8" y2="86.8" stroke="#898781" stroke-width="1.5" stroke-dasharray="6 5"/>
+<text x="872" y="79.8" font-size="11" fill="#898781" text-anchor="end">goal 3000</text>
+<polyline fill="none" stroke="#2a78d6" stroke-width="2" stroke-linejoin="round" points="100.2,365.2 129.3,315.1 157.3,262.2 185.3,244.1 213.3,237.5 246.0,215.6 269.3,215.6 382.5,205.1 438.5,201.3 466.5,188.8 500.3,198.2 528.3,166.5 556.3,165.1 584.3,173.1 606.5,152.6 696.3,167.9 724.3,159.9 752.3,152.6 780.3,155.0 834.0,137.6"/>
+<path d="M438.5,173.5V229.1M435.5,173.5h6M435.5,229.1h6" stroke="#2a78d6" stroke-opacity="0.5" stroke-width="1.3"/>
+<circle cx="438.5" cy="201.3" r="4.5" fill="#2a78d6" stroke="#fff" stroke-width="1.5"/>
+<path d="M466.5,169.6V207.9M463.5,169.6h6M463.5,207.9h6" stroke="#2a78d6" stroke-opacity="0.5" stroke-width="1.3"/>
+<circle cx="466.5" cy="188.8" r="4.5" fill="#2a78d6" stroke="#fff" stroke-width="1.5"/>
+<path d="M500.3,170.3V226.0M497.3,170.3h6M497.3,226.0h6" stroke="#2a78d6" stroke-opacity="0.5" stroke-width="1.3"/>
+<circle cx="500.3" cy="198.2" r="4.5" fill="#2a78d6" stroke="#fff" stroke-width="1.5"/>
+<path d="M528.3,149.1V183.9M525.3,149.1h6M525.3,183.9h6" stroke="#2a78d6" stroke-opacity="0.5" stroke-width="1.3"/>
+<circle cx="528.3" cy="166.5" r="4.5" fill="#2a78d6" stroke="#fff" stroke-width="1.5"/>
+<path d="M556.3,147.7V182.5M553.3,147.7h6M553.3,182.5h6" stroke="#2a78d6" stroke-opacity="0.5" stroke-width="1.3"/>
+<circle cx="556.3" cy="165.1" r="4.5" fill="#2a78d6" stroke="#fff" stroke-width="1.5"/>
+<path d="M584.3,155.7V190.5M581.3,155.7h6M581.3,190.5h6" stroke="#2a78d6" stroke-opacity="0.5" stroke-width="1.3"/>
+<circle cx="584.3" cy="173.1" r="4.5" fill="#2a78d6" stroke="#fff" stroke-width="1.5"/>
+<path d="M606.5,135.9V169.3M603.5,135.9h6M603.5,169.3h6" stroke="#2a78d6" stroke-opacity="0.5" stroke-width="1.3"/>
+<circle cx="606.5" cy="152.6" r="4.5" fill="#2a78d6" stroke="#fff" stroke-width="1.5"/>
+<path d="M696.3,150.5V185.3M693.3,150.5h6M693.3,185.3h6" stroke="#2a78d6" stroke-opacity="0.5" stroke-width="1.3"/>
+<circle cx="696.3" cy="167.9" r="4.5" fill="#2a78d6" stroke="#fff" stroke-width="1.5"/>
+<path d="M724.3,142.5V177.3M721.3,142.5h6M721.3,177.3h6" stroke="#2a78d6" stroke-opacity="0.5" stroke-width="1.3"/>
+<circle cx="724.3" cy="159.9" r="4.5" fill="#2a78d6" stroke="#fff" stroke-width="1.5"/>
+<path d="M752.3,135.9V169.3M749.3,135.9h6M749.3,169.3h6" stroke="#2a78d6" stroke-opacity="0.5" stroke-width="1.3"/>
+<circle cx="752.3" cy="152.6" r="4.5" fill="#2a78d6" stroke="#fff" stroke-width="1.5"/>
+<path d="M780.3,138.3V171.7M777.3,138.3h6M777.3,171.7h6" stroke="#2a78d6" stroke-opacity="0.5" stroke-width="1.3"/>
+<circle cx="780.3" cy="155.0" r="4.5" fill="#2a78d6" stroke="#fff" stroke-width="1.5"/>
+<circle cx="100.2" cy="365.2" r="4.5" fill="#fff" stroke="#2a78d6" stroke-width="2"/>
+<circle cx="129.3" cy="315.1" r="4.5" fill="#fff" stroke="#2a78d6" stroke-width="2"/>
+<circle cx="157.3" cy="262.2" r="4.5" fill="#fff" stroke="#2a78d6" stroke-width="2"/>
+<circle cx="185.3" cy="244.1" r="4.5" fill="#fff" stroke="#2a78d6" stroke-width="2"/>
+<circle cx="213.3" cy="237.5" r="4.5" fill="#fff" stroke="#2a78d6" stroke-width="2"/>
+<circle cx="269.3" cy="215.6" r="4.5" fill="#fff" stroke="#2a78d6" stroke-width="2"/>
+<circle cx="382.5" cy="205.1" r="4.5" fill="#fff" stroke="#2a78d6" stroke-width="2"/>
+<rect x="239.0" y="208.6" width="14" height="14" transform="rotate(45 246.0 215.6)" fill="#eb6834" stroke="#fff" stroke-width="2"/>
+<text x="258.0" y="245.6" font-size="12" fill="#0b0b0b" text-anchor="start" font-weight="600">c439, 10 blocks</text>
+<text x="258.0" y="260.6" font-size="12" fill="#52514e" text-anchor="start">71 CGOS games: 2630</text>
+<rect x="827.0" y="130.6" width="14" height="14" transform="rotate(45 834.0 137.6)" fill="#eb6834" stroke="#fff" stroke-width="2"/>
+<text x="818.0" y="113.6" font-size="12" fill="#0b0b0b" text-anchor="end" font-weight="600">E_c2600, 20 blocks</text>
+<text x="818.0" y="128.6" font-size="12" fill="#52514e" text-anchor="end">161 CGOS games: ≈2854</text>
+<circle cx="69" cy="444" r="4.5" fill="#fff" stroke="#2a78d6" stroke-width="2"/>
+<text x="80" y="448" font-size="12" fill="#52514e">Estimate from self-play matches</text>
+<circle cx="330.0" cy="444" r="4.5" fill="#2a78d6"/>
+<text x="341.0" y="448" font-size="12" fill="#52514e">KataGo yardstick (95% CI)</text>
+<rect x="544.0" y="439" width="10" height="10" transform="rotate(45 549.0 444)" fill="#eb6834"/>
+<text x="560.0" y="448" font-size="12" fill="#52514e">Measured on CGOS</text>
+</svg>

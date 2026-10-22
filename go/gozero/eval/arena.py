@@ -50,6 +50,7 @@ class MatchResult:
     b_name: str
     a_wins: int = 0
     b_wins: int = 0
+    draws: int = 0          # only possible with an integer komi; each counts as half a win
     a_wins_as_black: int = 0
     a_games_as_black: int = 0
     lengths: list = field(default_factory=list)
@@ -58,18 +59,19 @@ class MatchResult:
 
     @property
     def games_played(self):
-        return self.a_wins + self.b_wins
+        return self.a_wins + self.b_wins + self.draws
 
     @property
     def a_winrate(self):
-        return self.a_wins / max(1, self.games_played)
+        return (self.a_wins + 0.5 * self.draws) / max(1, self.games_played)
 
     def summary(self):
-        lo, hi = wilson_interval(self.a_wins, self.games_played)
+        lo, hi = wilson_interval(self.a_wins + 0.5 * self.draws, self.games_played)
         elo, elo_lo, elo_hi = elo_diff(self.a_winrate), elo_diff(lo), elo_diff(hi)
         return (f"{self.a_name} vs {self.b_name}: {self.a_wins}-{self.b_wins} "
                 f"({100 * self.a_winrate:.1f}%, 95% CI {100 * lo:.1f}-{100 * hi:.1f}%, "
-                f"Elo {elo:+.0f} [{elo_lo:+.0f}, {elo_hi:+.0f}]) | "
+                f"Elo {elo:+.0f} [{elo_lo:+.0f}, {elo_hi:+.0f}]"
+                + (f", {self.draws} draws" if self.draws else "") + ") | "
                 f"{self.a_name} as black {self.a_wins_as_black}/{self.a_games_as_black} | "
                 f"avg len {np.mean(self.lengths):.0f}, capped {self.capped}")
 
@@ -89,8 +91,10 @@ def elo_diff(p):
     return -400 * math.log10(1 / p - 1)
 
 
-def play_match(a: Player, b: Player, num_pairs, n, opening_moves=2, seed=0, verbose=False):
-    """Play 2 * num_pairs games (each opening once with each color assignment)."""
+def play_match(a: Player, b: Player, num_pairs, n, opening_moves=2, seed=0, verbose=False, komi=None):
+    """Play 2 * num_pairs games (each opening once with each color assignment).
+
+    komi: None = the board's default (7.5 on 9x9). With an integer komi (CGOS: 7.0) games can be drawn."""
     rng = np.random.default_rng(seed)
     openings = random_openings(num_pairs, n, opening_moves, rng)
     mcts = {"a": BatchedMCTS(a.mcts, rng), "b": BatchedMCTS(b.mcts, rng)}
@@ -99,7 +103,7 @@ def play_match(a: Player, b: Player, num_pairs, n, opening_moves=2, seed=0, verb
     games = []  # dict per game
     for g, op in enumerate(openings):
         for a_color in (1, -1):
-            s = GoState.new(n)
+            s = GoState.new(n, komi)
             for m in op:
                 s = s.play(m)
             games.append({"state": s, "a_color": a_color, "moves": list(op),
@@ -135,22 +139,24 @@ def play_match(a: Player, b: Player, num_pairs, n, opening_moves=2, seed=0, verb
             gm["moves"].append(m)
             gm["state"] = gm["state"].play(m)
             for pid, t in gm["trees"].items():
-                gm["trees"][pid] = t.child_by_move(m) if t.expanded else Node(gm["state"])
+                gm["trees"][pid] = t.child_or_new(m)
             if gm["state"].is_terminal():
                 st = gm["state"]
-                w = st.winner()
+                drawn = st.score() == 0
+                w = 0 if drawn else st.winner()
                 a_won = w == gm["a_color"]
+                res.draws += drawn
                 res.a_wins += a_won
-                res.b_wins += not a_won
+                res.b_wins += not a_won and not drawn
                 if gm["a_color"] == 1:
                     res.a_games_as_black += 1
-                    res.a_wins_as_black += a_won
+                    res.a_wins_as_black += 0.5 if drawn else a_won
                 res.lengths.append(st.move_number)
                 res.capped += st.passes < 2
                 res.games.append((gm["moves"], w, gm["a_color"], st.score()))
                 gm["trees"] = None
                 if verbose:
-                    print(f"  game {len(res.games)}: {res.a_name if a_won else res.b_name} wins "
+                    print(f"  game {len(res.games)}: {'draw' if drawn else (res.a_name if a_won else res.b_name) + ' wins'} "
                           f"(score {st.score():+.1f}, {st.move_number} moves) -> {res.a_wins}-{res.b_wins}",
                           flush=True)
             else:

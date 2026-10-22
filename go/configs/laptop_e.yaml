@@ -1,0 +1,49 @@
+# Run E (laptop, from Thu Oct 15): run D's final settings (laptop_d_sims.yaml: fast_visits 150, 2 workers) with a
+# 20-block tower. Starts from runs/exp_d cycle 1894 (D_c1894, +235 vs C_c611) deepened by tools/deepen.py (5 identity
+# blocks; outputs verified identical), with D's replay buffers. D plateaued from ~c1600 (+180..+235 vs C_c611); the
+# loss analysis (PLAN.md, Oct 13) points at the value judgment: more capacity. lr back to 0.002 so the new blocks learn.
+# Sun Oct 11 (cycle ~1385): laptop_d_lr.yaml with fast_visits 60 -> 150. After the lr drop the in-run evals
+# rose ~+85 Elo but the KataGo yardstick stayed flat (c1120 36.0%, c1350 36.5%); value loss stuck at ~0.30.
+# Run D (laptop, from Mon Oct 5): run C's settings (configs/9x9.yaml + value_q_weight 0.5) with a
+# 15-block tower instead of 10. Starts from runs/exp_c cycle 611 deepened by tools/deepen.py (the 5 new
+# blocks start as identities, so the net begins exactly equal to C), with C's replay buffers.
+# The 10-block net plateaued: c471, A_c508 and C_c611 all within ~+0..+45 Elo of c439.
+# Main 9x9 run. Settings follow AlphaZero / KataGo defaults scaled down for one laptop GPU.
+# Every value here is a starting point; see NOTES.md for why each one is set and how to adjust.
+net: {board_size: 9, blocks: 20, channels: 128, head_channels: 32, value_hidden: 128}
+selfplay:
+  num_parallel: 256        # games searched together (bigger GPU batches)
+  full_visits: 1000        # searches whose visit counts become policy targets (300 -> 600 at cycle 130; 600 -> 1000 at cycle 341)
+  fast_visits: 150         # Sun Oct 11: 60 -> 150 (value targets come from games played mostly at fast visits)
+  full_prob: 0.25
+  temp_start: 1.0
+  temp_end: 0.25
+  temp_halflife: 8
+  resign_enabled: false    # enable once value head is calibrated (check sp.resign_false_pos)
+  mcts: {c_puct: 1.25, fpu_reduction: 0.2, root_fpu_reduction: 0.0, dirichlet_alpha: 0.15, dirichlet_eps: 0.25}
+train:
+  batch_size: 256
+  optimizer: sgd
+  lr: 0.002                # run E start (new blocks); D went 0.002 -> 0.0006 at its plateau
+  momentum: 0.9
+  weight_decay: 0.0001
+  warmup_steps: 300
+  ownership_weight: 1.0
+  score_weight: 0.5
+  value_q_weight: 0.5      # run A's change (value target blended with root q)
+loop:
+  cycle_samples: 5000
+  train_ratio: 4.0
+  min_buffer: 20000
+  min_window: 25000
+  max_window: 400000
+  buffer_capacity: 500000
+  snapshot_every: 10
+  buffer_save_every: 5
+  selfplay_workers: 2      # Oct 8 trial: ~12k ev/s vs ~7.2k with 1 process (self-play is CPU-bound)
+eval:
+  every_cycles: 10
+  # E vs the net it grew from (D_c1894) and vs C_c611 (continuity with run D: D_c1894 +235 at 400 visits)
+  anchors: [runs/eval_d/D_c1894.pt, runs/eval_c/C_c611.pt]
+  num_pairs: 32
+  visits: 100

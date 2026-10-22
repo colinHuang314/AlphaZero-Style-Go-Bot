@@ -75,8 +75,11 @@ class Engine:
             self.err.close()
 
 
-def play_game(black, white, opening, n, komi, max_moves, clock):
-    """Returns (moves, score or None, winner color or 0 for a draw, reason)."""
+def play_game(black, white, opening, n, komi, max_moves, clock, slow=None, delay=0.0):
+    """Returns (moves, score or None, winner color or 0 for a draw, reason).
+    slow/delay: after engine `slow` moves, wait `delay` seconds (or, if delay < 0, as long as the other
+    engine took for its last move) before passing the move on, as if `slow` had been thinking that long:
+    lets a pondering engine use opponent time without a second engine competing for the GPU."""
     players = {1: black, -1: white}
     for e in players.values():
         e.send(f"boardsize {n}")
@@ -92,6 +95,7 @@ def play_game(black, white, opening, n, komi, max_moves, clock):
         moves.append(m)
         s = s.play(m)
     left = {1: clock, -1: clock}
+    last_t = 0.0
     while not s.is_terminal():
         c = s.to_play
         me, other = players[c], players[-c]
@@ -112,6 +116,10 @@ def play_game(black, white, opening, n, komi, max_moves, clock):
             return moves, None, -c, f"{COLOR[c].upper()} sent bad move {reply!r}"
         if not s.legal_mask()[m]:
             return moves, None, -c, f"{COLOR[c].upper()} played illegal {reply}"
+        if slow is not None and me is slow and delay:
+            time.sleep(last_t if delay < 0 else delay)
+        elif slow is not None:
+            last_t = time.time() - t
         other.send(f"play {COLOR[c]} {move_to_str(m, n)}")
         moves.append(m)
         s = s.play(m)
@@ -131,6 +139,8 @@ def main():
     ap.add_argument("--max-moves", type=int, default=400)
     ap.add_argument("--time", type=float, default=None, help="sudden-death seconds per side")
     ap.add_argument("--seed", type=int, default=12345)
+    ap.add_argument("--b-delay", type=float, default=0.0,
+                    help="B 'thinks' this many extra seconds per move (-1: as long as A's last move)")
     ap.add_argument("--sgf", default=None, help="directory for game records and engine stderr logs")
     args = ap.parse_args()
 
@@ -152,7 +162,7 @@ def main():
             for a_color in (1, -1):
                 black, white = (a, b) if a_color == 1 else (b, a)
                 moves, score, winner, reason = play_game(black, white, op, args.board, args.komi,
-                                                         args.max_moves, args.time)
+                                                         args.max_moves, args.time, b, args.b_delay)
                 a_pts = 0.5 if winner == 0 else float(winner == a_color)
                 pts["a"] += a_pts
                 pts["b"] += 1 - a_pts

@@ -55,7 +55,7 @@ class GameRecord:
 
 
 class _Slot:
-    __slots__ = ("root", "record", "low_count", "resign_allowed", "resign_flag")
+    __slots__ = ("root", "record", "low_count", "resign_allowed", "resign_flag", "full", "target", "noise_pending")
 
     def __init__(self, state, resign_allowed):
         self.root = Node(state)
@@ -63,6 +63,9 @@ class _Slot:
         self.low_count = {1: 0, -1: 0}
         self.resign_allowed = resign_allowed
         self.resign_flag = {1: False, -1: False}
+        self.full = False           # current search is a full one (policy target + noise)
+        self.target = 0             # root visits at which the current search ends; 0 = not started
+        self.noise_pending = False  # add root noise once the root is expanded
 
 
 class SelfPlay:
@@ -83,47 +86,95 @@ class SelfPlay:
         c = self.cfg
         return c.temp_end + (c.temp_start - c.temp_end) * 0.5 ** (move_number / c.temp_halflife)
 
-    def step(self):
-        """Play one move in every game. Returns list of finished GameRecords."""
+    ROUNDS_PER_STEP = 64
+
+    def step(self, rounds=None):
+        """Advance every game by `rounds` search iterations; returns the GameRecords that finished.
+
+        Games don't wait for each other: each game's search runs until its own root reaches its visit
+        target, then it plays the move and starts its next search right away. (Searching in lockstep, one
+        move for every game per call, left the GPU with batches of ~20 most of the time: with playout cap
+        randomization, the 75% fast searches finish after 60 visits while the full ones run to 1000.)
+        The halves of the games alternate as in BatchedMCTS.search: while the GPU evaluates one half's
+        leaves, the CPU descends the other half's trees.
+        """
+        evs = [self.evaluator] * len(self.slots)
+        finished = []
+        for i in range(len(self.slots)):
+            self._prepare(i, finished)
+        halves = [list(range(0, len(self.slots), 2)), list(range(1, len(self.slots), 2))]
+        pending, pending_half = [], None
+        for r in range(2 * (rounds or self.ROUNDS_PER_STEP) + 1):
+            h = r % 2
+            last = r == 2 * (rounds or self.ROUNDS_PER_STEP)
+            jobs = [] if last else self.mcts._descend([sl.root for sl in self.slots], halves[h], evs)
+            for job in pending:
+                self.total_evals += self.mcts._complete(job)
+            if pending_half is not None:
+                for i in halves[pending_half]:
+                    self._prepare(i, finished)
+            pending, pending_half = jobs, h
+        return finished
+
+    def _prepare(self, i, finished):
+        """Make slot i ready for its next descent: finish searches that reached their target (play the
+        move, maybe end the game), start new searches, add root noise once the root is expanded."""
+        cfg = self.cfg
+        while True:
+            sl = self.slots[i]
+            if sl.target and sl.root.N >= sl.target:
+                rec = self._play(i)
+                if rec is not None:
+                    finished.append(rec)
+                continue
+            if not sl.target:
+                sl.full = bool(self.rng.random() < cfg.full_prob)
+                sl.target = cfg.full_visits if sl.full else cfg.fast_visits
+                sl.noise_pending = sl.full
+                if sl.root.expanded:
+                    sl.root.P = sl.root.P_raw   # drop the previous search's noise (tree reuse)
+            if sl.noise_pending and sl.root.expanded:
+                self.mcts.add_noise(sl.root)
+                sl.noise_pending = False
+            if sl.root.N >= sl.target:      # reused subtree already has enough visits
+                continue
+            return
+
+    def _play(self, i):
+        """The search at slot i is done: record it and play the move. Returns the record if the game ended."""
         cfg = self.cfg
         n_act = cfg.board_size ** 2 + 1
-        full = self.rng.random(len(self.slots)) < cfg.full_prob
-        visits = [cfg.full_visits if f else cfg.fast_visits for f in full]
-        roots = [sl.root for sl in self.slots]
-        self.total_evals += self.mcts.search(roots, self.evaluator, visits, noise=list(full))
+        sl = self.slots[i]
+        sl.target = 0
+        root = sl.root
+        st = root.state
+        q = root.q()  # root value after the search, from the side to move's view
+        if sl.full:
+            sl.record.samples.append((make_features(st), root.visit_distribution(n_act),
+                                      st.to_play, st.move_number, q))
+        # resignation bookkeeping
+        if q < cfg.resign_threshold:
+            sl.low_count[st.to_play] += 1
+            if sl.low_count[st.to_play] >= cfg.resign_consecutive:
+                sl.resign_flag[st.to_play] = True
+        else:
+            sl.low_count[st.to_play] = 0
+        if sl.resign_allowed and sl.resign_flag[st.to_play]:
+            self._finish(sl, winner=-st.to_play, resigned=True)
+            self.slots[i] = self._new_slot()
+            return sl.record
 
-        finished = []
-        for i, sl in enumerate(self.slots):
-            root = sl.root
-            st = root.state
-            q = root.q()  # root value after the search, from the side to move's view
-            if full[i]:
-                sl.record.samples.append((make_features(st), root.visit_distribution(n_act),
-                                          st.to_play, st.move_number, q))
-            # resignation bookkeeping
-            if q < cfg.resign_threshold:
-                sl.low_count[st.to_play] += 1
-                if sl.low_count[st.to_play] >= cfg.resign_consecutive:
-                    sl.resign_flag[st.to_play] = True
-            else:
-                sl.low_count[st.to_play] = 0
-            if sl.resign_allowed and sl.resign_flag[st.to_play]:
-                self._finish(sl, winner=-st.to_play, resigned=True)
-                finished.append(sl.record)
-                self.slots[i] = self._new_slot()
-                continue
-
-            move = pick_move(root, self.temperature(st.move_number), self.rng)
-            sl.record.moves.append(move)
-            if cfg.tree_reuse:
-                sl.root = root.child_by_move(move)
-            else:
-                sl.root = Node(st.play(move))
-            if sl.root.terminal:
-                self._finish(sl, winner=sl.root.state.winner(), resigned=False)
-                finished.append(sl.record)
-                self.slots[i] = self._new_slot()
-        return finished
+        move = pick_move(root, self.temperature(st.move_number), self.rng)
+        sl.record.moves.append(move)
+        if cfg.tree_reuse:
+            sl.root = root.child_by_move(move)
+        else:
+            sl.root = Node(st.play(move))
+        if sl.root.terminal:
+            self._finish(sl, winner=sl.root.state.winner(), resigned=False)
+            self.slots[i] = self._new_slot()
+            return sl.record
+        return None
 
     def _finish(self, sl, winner, resigned):
         rec = sl.record

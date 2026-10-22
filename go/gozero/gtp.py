@@ -24,10 +24,19 @@ fewer than 20 more of our own moves), minus 0.3 s for latency.
     and never extend.
 Moves that are the same up to a symmetry of the position (e.g. the four 3-4
 points on an empty board) are pooled into one candidate for all of these tests.
+
+--ponder keeps searching on the opponent's time: after answering genmove, a
+background thread searches the tree below our move (the opponent to move) until
+the next command arrives (or --ponder-max visits). When the opponent's move
+comes, its subtree, with everything pondered there, becomes the new root, so the
+visits count as reused (with --tm-use they count toward the move's target).
+--komi-fix (see mcts/evaluator.py ScoreUtility): at komi 7.0 the net's half-point
+wins for White are really draws; the score head is used to value them as such.
 """
 import argparse
 import os
 import sys
+import threading
 import time
 
 import numpy as np
@@ -113,9 +122,9 @@ class GTPEngine:
     TM_SWING = 0.15        # root Q change since our previous move that counts as a surprise
     TM_CHUNK = 128         # visits between checks
 
-    def __init__(self, evaluator, n=9, visits=400, max_time=None, resign=None,
+    def __init__(self, evaluator, n=9, visits=400, max_time=None, resign=None, resign_moves=3,
                  leaf_batch=16, max_moves=1000, name="go-zero", log=None, seed=0,
-                 time_manage=False, tm_ext=3.0, tm_use=None):
+                 time_manage=False, tm_ext=3.0, tm_use=None, ponder=False, ponder_max=200000):
         self.ev = evaluator
         self.n = n
         self.visits = visits
@@ -125,6 +134,7 @@ class GTPEngine:
         self.tm_use = tm_use              # visit target from the clock: what a fresh search reaches in tm_use x budget
         self.rate = None                  # measured search speed, visits per second (moving average)
         self.resign = resign              # resign when the best move's Q is below this (None = never)
+        self.resign_moves = resign_moves  # ... on this many of our moves in a row
         self.leaf_batch = leaf_batch
         self.max_moves = max_moves
         self.name = name
@@ -134,6 +144,10 @@ class GTPEngine:
         self.komi = default_komi(n)
         self.time_left = {1: None, -1: None}   # (seconds, stones) per color from time_left
         self.quit = False
+        self.ponder = ponder              # search on the opponent's time (see start_ponder)
+        self.ponder_max = ponder_max      # stop pondering once the tree has this many visits
+        self.ponder_pending = False       # set by genmove: the caller starts pondering after replying
+        self._ponder = None               # (thread, stop event, result dict) while pondering
         self.new_game()
 
     # ------------------------------------------------------------- game state
@@ -143,12 +157,13 @@ class GTPEngine:
         self.history = []
         self.tree = Node(self.state)
         self.last_q = {1: None, -1: None}  # root Q after each color's previous genmove (swing test)
+        self.low_q = 0                     # our consecutive moves with Q below the resign threshold
 
     def _advance(self, move):
         self.history.append(self.state)
         self.state = self.state.play(move)
         t = self.tree
-        self.tree = t.child_by_move(move) if t.expanded else Node(self.state)
+        self.tree = t.child_or_new(move)
 
     def _sync_turn(self, color):
         """GTP allows a color to move twice; model the skipped turn as a pass."""
@@ -202,9 +217,13 @@ class GTPEngine:
         self.log(f"move {self.state.move_number + 1}: {move_to_str(move, self.n)} "
                  f"visits {int(root.N)} ({reused} reused) q {q:+.3f} time {time.time() - t0:.2f}s"
                  + (f" (budget {budget:.2f}s)" if budget is not None else "") + note)
-        if self.resign is not None and self.state.move_number >= 20 and q < self.resign:
-            return "resign"
+        if self.resign is not None:
+            self.low_q = self.low_q + 1 if q < self.resign else 0
+            if self.state.move_number >= 20 and self.low_q >= self.resign_moves:
+                self.log(f"resigning: q below {self.resign:g} on {self.low_q} moves in a row")
+                return "resign"
         self._advance(move)
+        self.ponder_pending = self.ponder
         return move_to_str(move, self.n).lower()
 
     def _search_managed(self, root, budget, color, t0):
@@ -287,6 +306,43 @@ class GTPEngine:
         sym = len(np.unique(cls)) < len(cls)
         return move, (f" [target {int(V)}, {phase}, stop: {why}" + (", " + "+".join(flags) if flags else "")
                       + (", symmetric" if sym else "") + "]")
+
+    # -------------------------------------------------------------- pondering
+    def start_ponder(self):
+        """Search the current tree (opponent to move) in a background thread until stop_ponder.
+
+        Call only after the genmove reply has been sent. Every command must call stop_ponder
+        first: the thread owns the tree while it runs."""
+        self.ponder_pending = False
+        if not self.ponder or self._ponder is not None or self.state.is_terminal():
+            return
+        root, stop, res = self.tree, threading.Event(), {"n": 0, "t": 0.0}
+
+        def run():
+            t0, n0 = time.time(), root.N
+            try:
+                if not root.expanded:
+                    search_single(root, self.ev, self.cfg, 1)
+                while not stop.is_set() and root.N < self.ponder_max:
+                    search_single(root, self.ev, self.cfg, min(self.ponder_max, root.N + 1024),
+                                  leaf_batch=self.leaf_batch, should_stop=stop.is_set)
+            except Exception as e:  # never let pondering take the engine down
+                res["error"] = repr(e)
+            res["n"], res["t"] = root.N - n0, time.time() - t0
+
+        th = threading.Thread(target=run, daemon=True)
+        self._ponder = (th, stop, res)
+        th.start()
+
+    def stop_ponder(self):
+        if self._ponder is None:
+            return
+        th, stop, res = self._ponder
+        stop.set()
+        th.join()
+        self._ponder = None
+        self.log(f"pondered {int(res['n'])} visits in {res['t']:.1f}s"
+                 + (f" (error: {res['error']})" if "error" in res else ""))
 
     def undo(self):
         if not self.history:
@@ -382,13 +438,22 @@ def main():
     ap.add_argument("--model", required=True, help="checkpoint (GoNet or original-project AZNet)")
     ap.add_argument("--visits", type=int, default=400, help="visits per move (upper limit when a clock is used)")
     ap.add_argument("--max-time", type=float, default=None, help="seconds per move cap")
-    ap.add_argument("--resign", type=float, default=None, help="resign below this Q, e.g. -0.95 (default: never)")
+    ap.add_argument("--resign", type=float, default=None, help="resign below this Q, e.g. -0.97 (default: never)")
+    ap.add_argument("--resign-moves", type=int, default=3, help="... on this many of our moves in a row")
     ap.add_argument("--time-manage", action="store_true",
                     help="early stop on decided moves, extend hard ones (see the module docstring)")
     ap.add_argument("--tm-ext", type=float, default=3.0, help="hard moves: up to this many times the visits and time")
     ap.add_argument("--tm-use", type=float, default=None,
                     help="with a clock, aim each move at the visits a fresh search reaches in this fraction of "
                          "its time budget (reused visits count; --visits becomes an upper limit)")
+    ap.add_argument("--komi-fix", action="store_true",
+                    help="at komi 7.0 (or 8.0), count the net's half-point 'wins' that are draws for real as draws, "
+                         "using the score head (mcts/evaluator.py ScoreUtility)")
+    ap.add_argument("--score-utility", type=float, default=0.0,
+                    help="weight of a small bonus for a bigger final margin (0 = off; e.g. 0.05)")
+    ap.add_argument("--score-sigma", type=float, default=2.0, help="assumed error of the score head, in points")
+    ap.add_argument("--ponder", action="store_true", help="keep searching on the opponent's time")
+    ap.add_argument("--ponder-max", type=int, default=200000, help="stop pondering at this many visits in the tree")
     ap.add_argument("--leaf-batch", type=int, default=16)
     ap.add_argument("--name", default=None)
     ap.add_argument("--quiet", action="store_true", help="no per-move log on stderr")
@@ -403,6 +468,9 @@ def main():
     path = args.model if os.path.isabs(args.model) else os.path.join(root, args.model)
     dev = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     ev = load_anchor(path, dev)
+    if args.komi_fix or args.score_utility:
+        from .mcts.evaluator import ScoreUtility
+        ev.utility = ScoreUtility(komi_fix=args.komi_fix, score_weight=args.score_utility, sigma=args.score_sigma)
     n = getattr(getattr(ev.model, "cfg", None), "board_size", None) or ev.model.board_size
     logf = None
     if args.log_file:
@@ -417,18 +485,23 @@ def main():
             logf.write(f"{time.strftime('%Y-%m-%d %H:%M:%S')} {m}\n")
             logf.flush()
     name = args.name or "go-zero-" + os.path.basename(path).replace(".pt", "").replace("candidate_", "")
-    eng = GTPEngine(ev, n=n, visits=args.visits, max_time=args.max_time, resign=args.resign,
+    eng = GTPEngine(ev, n=n, visits=args.visits, max_time=args.max_time, resign=args.resign, resign_moves=args.resign_moves,
                     leaf_batch=args.leaf_batch, name=name, log=log,
-                    time_manage=args.time_manage, tm_ext=args.tm_ext, tm_use=args.tm_use)
+                    time_manage=args.time_manage, tm_ext=args.tm_ext, tm_use=args.tm_use,
+                    ponder=args.ponder, ponder_max=args.ponder_max)
 
     # warm up CUDA and the numba kernels so the first real move isn't slow on the clock
     t = time.time()
     search_single(Node(GoState.new(n)), ev, eng.cfg, 64, leaf_batch=args.leaf_batch)
     log(f"{name} ready on {dev} ({time.time() - t:.1f}s warmup), {args.visits} visits per move"
         + (f", time management on (hard moves up to {args.tm_ext:g}x"
-           + (f", target from {args.tm_use:g} x clock budget" if args.tm_use else "") + ")" if args.time_manage else ""))
+           + (f", target from {args.tm_use:g} x clock budget" if args.tm_use else "") + ")" if args.time_manage else "")
+        + (", pondering" if args.ponder else "")
+        + (", komi fix" if args.komi_fix else "")
+        + (f", score utility {args.score_utility:g}" if args.score_utility else ""))
 
     for line in sys.stdin:
+        eng.stop_ponder()  # the ponder thread owns the tree; take it back before any command
         resp = eng.handle(line)
         if resp is None:
             continue
@@ -436,6 +509,9 @@ def main():
         sys.stdout.flush()
         if eng.quit:
             break
+        if eng.ponder_pending:  # only after the reply is out, so pondering never delays it
+            eng.start_ponder()
+    eng.stop_ponder()
 
 
 if __name__ == "__main__":

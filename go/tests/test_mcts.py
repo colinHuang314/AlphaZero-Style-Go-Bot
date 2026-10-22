@@ -93,8 +93,49 @@ def test_search_single_matches_visit_target_and_finds_capture():
     from gozero.mcts.mcts import principal_variation, search_single
     s = position(5, black=["B2", "B3", "B4", "D2", "D3", "D4", "C1"], white=["C2", "C3", "C4", "E5", "A5"], to_play=1)
     root = Node(s)
-    search_single(root, RolloutEvaluator(rollouts=4, seed=0), MCTSConfig(c_puct=1.0), 300, leaf_batch=8)
+    # the position is left-right symmetric; pruning would compare B5+D5 as one class (2 visits shares) with C5
+    search_single(root, RolloutEvaluator(rollouts=4, seed=0), MCTSConfig(c_puct=1.0, symmetry_prune=False), 300,
+                  leaf_batch=8)
     assert root.N == 300 and root.Nc.sum() == 300  # virtual loss fully removed
     assert pick_move(root, 0, np.random.default_rng(0)) == str_to_move("C5", 5)
     pv = principal_variation(root)
     assert pv[0] == str_to_move("C5", 5) and len(pv) >= 2
+
+
+def test_symmetry_prune_empty_board_keeps_one_move_per_class_top_right():
+    from gozero.mcts.mcts import symmetry_prune
+    s = GoState.new(9)
+    moves = np.flatnonzero(s.legal_mask())
+    pri = np.full(len(moves), 1.0 / len(moves), dtype=np.float32)
+    m2, p2, orbits = symmetry_prune(s, moves, pri)
+    assert len(m2) == 16                                  # 15 board classes + pass
+    assert abs(p2.sum() - 1) < 1e-5                       # prior mass is pooled, not lost
+    assert str_to_move("G7", 9) in m2 and str_to_move("C3", 9) not in m2   # 3-3 point: upper right
+    assert str_to_move("E5", 9) in m2 and 81 in m2
+    assert sorted(np.concatenate(list(orbits.values())).tolist()) == moves.tolist()
+
+
+def test_symmetry_prune_skips_asymmetric_and_ko_positions():
+    from gozero.mcts.mcts import symmetry_prune
+    s = GoState.new(9).play(str_to_move("C3", 9))         # one corner stone: only the diagonal mirror
+    moves = np.flatnonzero(s.legal_mask())
+    pri = np.full(len(moves), 1.0 / len(moves), dtype=np.float32)
+    m2, _, orbits = symmetry_prune(s, moves, pri)
+    assert len(moves) > len(m2) > len(moves) // 2
+    s2 = s.play(str_to_move("F4", 9))                     # asymmetric now
+    m3 = np.flatnonzero(s2.legal_mask())
+    assert symmetry_prune(s2, m3, np.ones(len(m3), dtype=np.float32))[2] is None
+
+
+def test_pruned_search_spreads_targets_and_handles_folded_moves():
+    mcts = BatchedMCTS(MCTSConfig(dirichlet_eps=0.0), np.random.default_rng(0))
+    root = Node(GoState.new(9))
+    mcts.search([root], UniformEvaluator(), 200)
+    assert len(root.moves) == 16 and root.N == 200
+    pi = root.visit_distribution(82)
+    assert abs(pi.sum() - 1) < 1e-5
+    c3, g7, c7, g3 = (str_to_move(m, 9) for m in ("C3", "G7", "C7", "G3"))
+    assert pi[c3] == pi[g7] == pi[c7] == pi[g3]           # symmetric target
+    child = root.child_or_new(c3)                        # folded move: fresh subtree, right position
+    assert child.N == 0 and child.state.board[c3] == 1
+    assert root.child_or_new(g7) is root.child_by_move(g7)

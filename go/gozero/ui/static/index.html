@@ -18,6 +18,7 @@
     --good: #2e8b3a;          /* green ring = close alternatives */
     --last: #ff9800;          /* orange square = last move */
     --blue: #1a5fd0;          /* headline numbers */
+    --kata: #00897b;          /* KataGo in the Compare tab */
   }
   * { box-sizing: border-box; }
   body { margin: 0; background: var(--paper); color: var(--ink);
@@ -77,6 +78,7 @@
   .card button:hover { background: #f1ebe2; }
   .card button.on { background: var(--ink); color: #fff; border-color: var(--ink); }
   .card input[type=text] { font: inherit; padding: 4px 6px; border: 1px solid var(--line); border-radius: 5px; }
+  .kata { color: var(--kata); font-weight: 700; }
   .ok { color: #2e8b3a; font-weight: 700; } .bad { color: var(--red); font-weight: 700; }
   #pzBatch table td:nth-child(2), #pzBatch table th:nth-child(2) { text-align: left; }
   kbd { background: #fff; border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 3px; padding: 0 4px; font-size: 11px; }
@@ -127,8 +129,15 @@
         <tbody id="cands"></tbody></table>
     </div>
 
+    <div class="card" id="kataCard" style="display:none">
+      <h2>KataGo <span class="legend" id="kataNet"></span></h2>
+      <div id="kataAgree" style="margin-bottom:6px;font-size:13px"></div>
+      <table><thead><tr><th>#</th><th>Move</th><th>Win%</th><th>Score</th><th>Visits</th><th>Prior</th><th>Line</th></tr></thead>
+        <tbody id="kcands"></tbody></table>
+    </div>
+
     <div class="card">
-      <h2>Black win rate over the game <span class="legend"><i style="background:var(--blue)"></i>search<i style="background:#b7a58f"></i>net</span></h2>
+      <h2>Black win rate over the game <span class="legend"><i style="background:var(--blue)"></i>search<i style="background:#b7a58f"></i>net<span id="graphKata" style="display:none"><i style="background:var(--kata)"></i>KataGo</span></span></h2>
       <canvas id="graph" width="370" height="150"></canvas>
     </div>
 
@@ -140,6 +149,9 @@
         <label><input type="checkbox" id="ovOwn"> Ownership</label>
         <label><input type="checkbox" id="ovNums"> Move numbers</label>
         <label><input type="checkbox" id="ovCoords" checked> Coordinates</label>
+      </div>
+      <div class="row" id="cmpRow" style="display:none"><label>Compare board</label>
+        <select id="cmpView"><option value="both">both (KataGo top 5 as teal rings)</option><option value="ours">go-zero only</option><option value="kata">KataGo only</option></select>
       </div>
       <div class="row"><label>Candidate labels</label>
         <select id="labelMode"><option value="win">win% / visits</option><option value="share">share / visits</option><option value="prior">prior / visits</option></select>
@@ -163,11 +175,13 @@
 
 <script>
 const $ = id => document.getElementById(id);
-const MODES = [["analyze","Analyze"],["play","Play vs bot"],["watch","Watch bots"],["policy","Policy view"],["sandbox","Sandbox"],["puzzle","Puzzles"]];
+const MODES = [["analyze","Analyze"],["play","Play vs bot"],["watch","Watch bots"],["policy","Policy view"],["sandbox","Sandbox"],["puzzle","Puzzles"],["compare","Compare vs KataGo"]];
+const KCOL = "#00897b";    // KataGo
 const COLS = "ABCDEFGHJKLMNOPQRST";
 let S = null;              // last server snapshot
 let hover = null;          // board point under the mouse
 let hoverCand = null;      // candidate move whose line is previewed
+let hoverKata = null;      // KataGo candidate whose line is previewed (Compare tab)
 let pzTool = "B";          // puzzle editor tool: B, W, erase, mark
 let busy = false;
 
@@ -277,11 +291,16 @@ function drawBoard() {
     ctx.fillStyle = "var(--last)"; ctx.fillStyle = "#ff9800"; ctx.fillRect(g.x(c)-s/2, g.y(r)-s/2, s, s);
   }
 
-  if (hoverCand !== null) { drawPV(g); return; }
+  if (hoverCand !== null) { drawPV(g, S.search && S.search.candidates, hoverCand, "#8e24aa"); return; }
+  if (hoverKata !== null) { drawPV(g, S.kata && S.kata.candidates, hoverKata, KCOL); return; }
   const mode = S.settings.mode;
   const showSearch = $("ovSearch").checked && S.search && mode !== "policy";
   const showPolicy = S.net && (mode === "policy" || $("ovPolicy").checked || (!S.search && mode === "analyze"));
-  if (showSearch) drawCandidates(g);
+  if (mode === "compare") {
+    const v = $("cmpView").value;
+    if (v !== "kata" && showSearch) drawCandidates(g);
+    if (v !== "ours") drawKata(g, v === "both");
+  } else if (showSearch) drawCandidates(g);
   else if (showPolicy) drawPolicy(g);
   if (mode === "puzzle") { drawPuzzleMarks(g); return; }
   // hover ghost stone for the human's move
@@ -339,13 +358,38 @@ function drawPolicy(g) {
     text(g, r, c, pct(p[i]), "#d0021b", g.step*(bestHere ? 0.3 : 0.25), 0, bestHere || good ? "800" : "600", HALO);
   }
 }
-function drawPV(g) {
-  const cd = S.search && S.search.candidates.find(x => x.move === hoverCand); if (!cd) return;
+// KataGo's candidates: full display ("KataGo only") or its top 5 as teal rings with a rank badge ("both")
+function drawKata(g, ringsOnly) {
+  const k = S.kata; if (!k || !k.candidates || !k.candidates.length) return;
+  const n = g.n, cands = k.candidates, maxV = cands[0].visits, fs = g.step*0.27, mode = $("labelMode").value;
+  cands.forEach((cd, i) => {
+    if (cd.move === n*n || cd.visits < Math.max(2, maxV * 0.002)) return;
+    const r = Math.floor(cd.move/n), c = cd.move % n, best = i === 0;
+    if (ringsOnly) {
+      if (i >= 5) return;
+      ctx.beginPath(); ctx.arc(g.x(c), g.y(r), g.step*0.5, 0, 2*Math.PI);
+      ctx.lineWidth = g.step*(best ? 0.08 : 0.045); ctx.strokeStyle = KCOL;
+      ctx.setLineDash(best ? [] : [g.step*0.08, g.step*0.06]); ctx.stroke(); ctx.setLineDash([]);
+      const x = g.x(c) + g.step*0.36, y = g.y(r) - g.step*0.36;
+      ctx.beginPath(); ctx.arc(x, y, g.step*0.13, 0, 2*Math.PI); ctx.fillStyle = KCOL; ctx.fill();
+      ctx.fillStyle = "#fff"; ctx.font = `700 ${g.step*0.17}px "Segoe UI", sans-serif`;
+      ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(String(i + 1), x, y + 1);
+      return;
+    }
+    const alpha = Math.pow(cd.visits / maxV, 0.9) * 0.8;
+    stone(g, r, c, S.to_play, Math.max(0.12, alpha), best ? 0.47 : 0.42, best ? KCOL : null, g.step*0.07);
+    const top = mode === "win" ? pct(cd.winrate) : mode === "share" ? pct(cd.share) : pct(cd.prior);
+    text(g, r, c, top, KCOL, fs * (best ? 1.12 : 1), -g.step*0.12, best ? "800" : "600", HALO);
+    text(g, r, c, kfmt(cd.visits), KCOL, fs * 0.9, g.step*0.16, best ? "800" : "600", HALO);
+  });
+}
+function drawPV(g, list, move, ringColor) {
+  const cd = list && list.find(x => x.move === move); if (!cd) return;
   let color = S.to_play;
   cd.pv.forEach((m, i) => {
     if (m !== g.n*g.n) {
       const r = Math.floor(m/g.n), c = m % g.n;
-      stone(g, r, c, color, 0.78, 0.46, i === 0 ? "#8e24aa" : null, g.step*0.06);
+      stone(g, r, c, color, 0.78, 0.46, i === 0 ? ringColor : null, g.step*0.06);
       text(g, r, c, String(i+1), color === 1 ? "#fff" : "#111", g.step*0.34, 0, "700");
     }
     color = -color;
@@ -386,6 +430,10 @@ function renderPanel() {
   } else if (S.game_over) {
     $("headVisits").textContent = `Game over: ${S.result}`;
     $("headSub").textContent = `${S.length} moves · captures B ${S.captures.black} / W ${S.captures.white} · squares show Tromp-Taylor territory`;
+  } else if (st.mode === "compare" && S.search) {
+    const kv = S.kata && S.kata.visits ? S.kata.visits.toLocaleString() : "0";
+    $("headVisits").innerHTML = `go-zero ${S.search.visits.toLocaleString()} <span class="kata">· KataGo ${kv}</span>`;
+    $("headSub").textContent = `of ${st.compare_visits.toLocaleString()} visits each · ${toPlay} to play · move ${S.cursor + 1}`;
   } else if (S.search) {
     $("headVisits").textContent = S.search.visits.toLocaleString() + " visits";
     $("headSub").textContent = `${Math.round(S.vps).toLocaleString()} visits/s · ${toPlay} to play · move ${S.cursor + 1}`;
@@ -410,6 +458,8 @@ function renderPanel() {
     if (S.net.score_lead !== null) { const sl = S.net.score_lead; kv.push(["Score lead", `${sl >= 0 ? "B" : "W"}+${Math.abs(sl).toFixed(1)} (net)`]); }
     kv.push(["Model", `${S.net.model.split("/").slice(-2).join("/")} (${S.net.kind})`]);
   }
+  if (S.kata && S.kata.visits) { const l = S.kata.black_score_lead;
+    kv.push(["KataGo", `<span class="kata">${pct(S.kata.black_winrate)}% black, ${l >= 0 ? "B" : "W"}+${Math.abs(l).toFixed(1)} (${S.kata.visits.toLocaleString()} visits)</span>`]); }
   if (S.score_now !== undefined && !S.game_over) kv.push(["Area now", `${S.score_now >= 0 ? "B" : "W"}+${Math.abs(S.score_now)}`]);
   $("evalKV").innerHTML = kv.map(([k, v]) => `<b>${k}</b><span>${v}</span>`).join("");
 
@@ -423,6 +473,8 @@ function renderPanel() {
     tr.dataset.move = cd.move;
     tb.appendChild(tr);
   });
+
+  renderKata();
 
   // pass info under the board (as in the original UI)
   let passTxt = "";
@@ -447,11 +499,72 @@ function renderPanel() {
   drawGraph();
 }
 
+function renderKata() {
+  const on = S.settings.mode === "compare", n = S.n, k = S.kata;
+  $("kataCard").style.display = on ? "" : "none";
+  $("cmpRow").style.display = on ? "" : "none";
+  $("graphKata").style.display = on ? "" : "none";
+  $("candCard").querySelector("h2").firstChild.textContent = on ? "go-zero top moves " : "Top moves ";
+  if (!on || !k) return;
+  $("kataNet").textContent = k.net ? k.net.replace(".bin.gz", "") : "";
+  let agree = "";
+  if (!k.available) agree = `<span class="bad">KataGo not found in tools/katago/</span>`;
+  else if (k.error && !k.visits) agree = `<span class="bad">${k.error}</span>`;
+  else if (!k.visits) agree = `<span class="legend">KataGo is starting (a few seconds the first time)…</span>`;
+  const a = k.agree;
+  if (a) {
+    agree += a.agree ? `<div class="ok">Top moves agree: ${mstr(a.our_top, n)}</div>`
+      : `<div><span class="bad">Top moves differ:</span> go-zero <b>${mstr(a.our_top, n)}</b>, KataGo <b class="kata">${mstr(a.kata_top, n)}</b></div>`;
+    if (!a.agree) {
+      agree += a.kata_on_ours_winrate !== undefined
+        ? `<div>KataGo on ${mstr(a.our_top, n)}: ${pct(a.kata_on_ours_winrate)}% (<b class="bad">−${pct(a.winrate_loss)}%</b>` +
+          (a.points_loss !== undefined ? `, −${a.points_loss.toFixed(1)} pts` : "") + `, ${kfmt(a.kata_visits_on_ours)} KataGo visits)</div>`
+        : `<div>KataGo did not search ${mstr(a.our_top, n)} (it thinks it is clearly worse)</div>`;
+      agree += `<div>${mstr(a.kata_top, n)} in go-zero: prior ${pct(a.our_prior_on_kata_top)}% (rank ${a.our_rank_of_kata_top}), ` +
+               `${pct(a.our_share_on_kata_top)}% of visits` + (a.our_winrate_on_kata_top !== null ? `, ${pct(a.our_winrate_on_kata_top)}% win` : "") + `</div>`;
+    }
+  }
+  $("kataAgree").innerHTML = agree;
+  const tb = $("kcands"); tb.innerHTML = "";
+  (k.candidates || []).slice(0, 10).forEach((cd, i) => {
+    const tr = document.createElement("tr"); tr.className = "cand" + (cd.move === hoverKata ? " hl" : "");
+    const sl = cd.score_lead === null || cd.score_lead === undefined ? "" : (cd.score_lead >= 0 ? "+" : "") + cd.score_lead.toFixed(1);
+    tr.innerHTML = `<td>${i+1}</td><td class="${i === 0 ? "kata" : ""}">${mstr(cd.move, n)}</td><td>${pct(cd.winrate)}</td><td>${sl}</td>` +
+                   `<td>${kfmt(cd.visits)}</td><td>${pct(cd.prior)}</td><td class="pv">${cd.pv.slice(1, 7).map(m => mstr(m, n)).join(" ")}</td>`;
+    tr.dataset.move = cd.move;
+    tb.appendChild(tr);
+  });
+  renderLadder();
+}
+function renderLadder() {
+  const el = $("ladder"); if (!el) return;
+  const L = S.kata && S.kata.ladder, n = S.n;
+  if (!L) { el.innerHTML = ""; return; }
+  const rows = L.rows.map(r => {
+    const o = r.ours, k = r.kata, same = o && k && !k.error && o.move === k.move;
+    const judge = o && o.kata_winrate !== null && o.kata_winrate !== undefined ? pct(o.kata_winrate) : "–";
+    return `<tr><td>${r.visits.toLocaleString()}</td>` +
+      (o ? `<td>${mstr(o.move, n)}</td><td>${pct(o.winrate)}</td><td>${judge}</td>` : `<td colspan="3" class="legend">…</td>`) +
+      (k ? (k.error ? `<td colspan="2" class="bad">${k.error}</td>` : `<td class="kata">${mstr(k.move, n)}</td><td>${pct(k.winrate)}</td>`) : `<td colspan="2" class="legend">…</td>`) +
+      `<td>${same ? "<span class=\"ok\">✓</span>" : ""}</td></tr>`;
+  }).join("");
+  el.innerHTML = `<table style="margin-top:6px"><thead><tr><th>Visits</th><th>go-zero</th><th>Win%</th><th title="KataGo's win rate for go-zero's move, from its main search">Kata's view</th>` +
+    `<th>KataGo</th><th>Win%</th><th></th></tr></thead><tbody>${rows}</tbody></table>` +
+    `<div class="legend">Win% for the side to move. "Kata's view" = KataGo's own win rate for go-zero's move (from its ${L.judge_visits.toLocaleString()}-visit search; – if it never searched that move).` +
+    (L.running ? " Running…" : "") + `</div>`;
+}
+
 let modeCardKey = "";
 function renderModeCard() {
   const st = S.settings;
-  const key = st.mode === "puzzle" ? "puzzle" : JSON.stringify([st.mode, st.human_color, st.bot_visits, st.watch_visits, st.max_visits, st.white_model, S.models.length]);
-  if (key === modeCardKey) { if (st.mode === "puzzle") renderPuzzle(); return; }   // don't rebuild inputs while the user is typing
+  const key = st.mode === "puzzle" ? "puzzle" : JSON.stringify([st.mode, st.human_color, st.bot_visits, st.watch_visits, st.max_visits, st.compare_visits]);
+  if (key === modeCardKey) {   // don't rebuild inputs while the user is typing
+    if (st.mode === "puzzle") renderPuzzle();
+    // the watch selects follow the settings (e.g. Black changed with the model picker at the top, or new
+    // snapshots appearing in runs/ during training) without a rebuild
+    if (st.mode === "watch") { fillSelect($("bm"), S.models, st.model); fillSelect($("wm"), S.models, st.white_model); }
+    return;
+  }
   modeCardKey = key;
   const c = $("modeCard");
   if (st.mode === "puzzle") { buildPuzzleCard(c); renderPuzzle(); return; }
@@ -476,6 +589,16 @@ function renderModeCard() {
       <div class="row"><label>Stop at visits</label><input type="number" id="mv" min="10" max="10000000" value="${st.max_visits}"></div>
       <div class="legend">Click to place stones for the side to move; the search restarts (reusing its tree) after every move.</div>`;
     $("mv").onchange = e => setv("max_visits", parseInt(e.target.value));
+  } else if (st.mode === "compare") {
+    c.innerHTML = `<h2>Compare with KataGo</h2>
+      <div class="row"><label>Visits (each engine)</label><input type="number" id="cv" min="1" max="100000" value="${st.compare_visits}"></div>
+      <div class="row"><button id="ladderRun">Run visits ladder</button><span class="legend">1 · 16 · 100 · 800 · 3,200 visits, a fresh search each</span></div>
+      <div id="ladder"></div>
+      <div class="legend" style="margin-top:6px">Both engines search the position on the board with the same number of visits.
+        Red/purple = go-zero, teal = KataGo. Click to play a move; both follow. KataGo is only shown here: it never feeds training.</div>`;
+    $("cv").onchange = e => setv("compare_visits", parseInt(e.target.value));
+    $("ladderRun").onclick = () => post({type:"ladder"});
+    renderLadder();
   } else if (st.mode === "policy") {
     c.innerHTML = `<h2>Policy view</h2><div class="legend">Raw network move probabilities, no search. Purple ring = top move, green = within 75% of it.</div>`;
   } else {
@@ -508,7 +631,7 @@ function buildPuzzleCard(c) {
   const meta = () => ({name: $("pzName").value, note: $("pzNote").value});
   $("pzSave").onclick = () => post({type:"pz_save", overwrite: true, ...meta()});
   $("pzSaveNew").onclick = () => post({type:"pz_save", overwrite: false, ...meta()});
-  $("pzNew").onclick = () => post({type:"pz_clear"});
+  $("pzNew").onclick = () => { $("pzName").value = ""; $("pzNote").value = ""; post({type:"pz_clear"}); };
   $("pzLoad").onclick = () => { if ($("pzFiles").value) post({type:"pz_load", file: $("pzFiles").value}); };
   $("pzDel").onclick = () => { const f = $("pzFiles").value;
     if (f && confirm(`Delete problems/${f}? This cannot be undone.`)) post({type:"pz_delete", file: f}); };
@@ -523,10 +646,14 @@ function renderPuzzle() {
   for (const b of $("pzTools").children) b.className = b.dataset.t === pzTool ? "on" : "";
   $("pzTpB").className = S.to_play === 1 ? "on" : ""; $("pzTpW").className = S.to_play === -1 ? "on" : "";
   $("pzTen").checked = pz.tenuki;
-  if (pz.file !== pzShownFile) {   // only overwrite the text fields when a different puzzle is loaded or cleared
+  // Only touch the text fields and the "Saved" choice when a different puzzle is loaded, saved or cleared.
+  // (Setting the dropdown to the loaded file on every poll undid the user's pick within a second, so
+  // "Load" reloaded the same puzzle until "Clear board" made pz.file empty.)
+  const changed = pz.file !== pzShownFile;
+  if (changed) {
     pzShownFile = pz.file; $("pzName").value = pz.name || ""; $("pzNote").value = pz.note || "";
   }
-  fillSelect($("pzFiles"), pz.files, pz.file || $("pzFiles").value);
+  fillSelect($("pzFiles"), pz.files, changed ? pz.file : null);
   let status = "";
   if (pz.bad.length) status += `<div class="bad">Stones with no liberties (red rings): this position is impossible.</div>`;
   if (!pz.marks.length) status += `<div class="legend">No answer marked yet: pick "&#10003; Mark answer" and click the correct move(s).</div>`;
@@ -548,8 +675,10 @@ function renderPuzzle() {
 }
 function fillSelect(sel, items, value) {
   if (sel.dataset.items !== items.join("|")) {
+    const prev = sel.value;   // keep the user's choice across a rebuild of the list
     sel.innerHTML = items.map(m => `<option value="${m}">${m}</option>`).join("");
     sel.dataset.items = items.join("|");
+    if (items.includes(prev)) sel.value = prev;
   }
   if (value && sel.value !== value) sel.value = value;
 }
@@ -559,6 +688,10 @@ $("cands").onmouseover = e => { const tr = e.target.closest("tr"); if (!tr) retu
   const m = parseInt(tr.dataset.move); if (m !== hoverCand) { hoverCand = m; drawBoard(); } };
 $("cands").onmouseleave = () => { hoverCand = null; drawBoard(); };
 $("cands").onclick = e => { const tr = e.target.closest("tr"); if (tr && canClick()) post({type:"play", move: parseInt(tr.dataset.move)}); };
+$("kcands").onmouseover = e => { const tr = e.target.closest("tr"); if (!tr) return;
+  const m = parseInt(tr.dataset.move); if (m !== hoverKata) { hoverKata = m; drawBoard(); } };
+$("kcands").onmouseleave = () => { hoverKata = null; drawBoard(); };
+$("kcands").onclick = e => { const tr = e.target.closest("tr"); if (tr && canClick()) post({type:"play", move: parseInt(tr.dataset.move)}); };
 
 // ------------------------------------------------------------------ win-rate graph
 const gc = $("graph"), gx = gc.getContext("2d");
@@ -578,6 +711,7 @@ function drawGraph() {
   };
   line("net", "#b7a58f", 1.5 * (window.devicePixelRatio || 1));
   line("mcts", "#1a5fd0", 2.5 * (window.devicePixelRatio || 1));
+  if (S.settings.mode === "compare") line("kata", KCOL, 2 * (window.devicePixelRatio || 1));
   G.forEach((g, i) => { if (g.mcts !== null && g.mcts !== undefined) { gx.fillStyle = "#1a5fd0"; gx.beginPath(); gx.arc(X(i), Y(g.mcts), 2.2*(window.devicePixelRatio||1), 0, 7); gx.fill(); } });
   gx.strokeStyle = "#d0021b"; gx.lineWidth = 1.5; gx.beginPath(); gx.moveTo(X(S.cursor), pad); gx.lineTo(X(S.cursor), H - pad); gx.stroke();
   gx.fillStyle = "#7a7065"; gx.font = `${11*(window.devicePixelRatio||1)}px Segoe UI`; gx.fillText("B", 2, Y(.95)); gx.fillText("W", 2, Y(.02));
@@ -621,7 +755,7 @@ $("pass").onclick = () => { if (canClick()) post({type:"pass"}); };
 $("toggleSearch").onclick = () => setv("analyzing", !S.settings.analyzing);
 $("model").onchange = e => setv("model", e.target.value);
 $("newGame").onclick = () => post({type:"new", size: parseInt($("size").value)});
-for (const id of ["ovSearch","ovPolicy","ovOwn","ovNums","ovCoords","labelMode"]) $(id).onchange = () => drawBoard();
+for (const id of ["ovSearch","ovPolicy","ovOwn","ovNums","ovCoords","labelMode","cmpView"]) $(id).onchange = () => drawBoard();
 $("saveSgf").onclick = async () => {
   const t = await (await fetch("/api/sgf")).text();
   const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([t], {type:"application/x-go-sgf"}));
@@ -644,6 +778,7 @@ document.addEventListener("mousemove", e => {
   lastMouse = {x: e.clientX, y: e.clientY};
   // drop a table-row preview as soon as the pointer is anywhere else (board Shift-preview handled by the canvas)
   if (hoverCand !== null && !e.target.closest("#cands") && e.target !== cv) { hoverCand = null; drawBoard(); }
+  if (hoverKata !== null && !e.target.closest("#kcands")) { hoverKata = null; drawBoard(); }
 });
 window.onresize = () => { if (S) { drawBoard(); drawGraph(); } };
 

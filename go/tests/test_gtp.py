@@ -145,3 +145,52 @@ def test_clock_budget():
     assert abs(e.move_budget(1) - 5.7) < 1e-6  # byo-yomi: 30 s for 5 stones, minus latency
     ok(e.handle("time_left b 0.1 0"))
     ok(e.handle("genmove b"))                 # still answers with almost no time
+
+
+def test_ponder_searches_opponent_turn_and_is_reused():
+    import time
+    e = engine(visits=32, ponder=True, ponder_max=400)
+    mv = ok(e.handle("genmove b"))
+    assert e.ponder_pending
+    e.start_ponder()
+    t0 = time.time()
+    while e.tree.N < 400 and time.time() - t0 < 10:   # pondering stops by itself at ponder_max
+        time.sleep(0.01)
+    e.stop_ponder()
+    assert e.tree.N >= 400 and e._ponder is None and not e.ponder_pending
+    # the opponent's most-pondered reply keeps its subtree: those visits are reused for our next move
+    best = int(e.tree.moves[e.tree.Nc.argmax()])
+    sub = e.tree.children[int(e.tree.Nc.argmax())].N
+    from gozero.go.state import move_to_str
+    ok(e.handle(f"play w {move_to_str(best, 5)}"))
+    assert e.tree.N == sub > 0
+    ok(e.handle("genmove b"))
+    assert mv
+
+
+def test_ponder_stops_on_command_and_off_by_default():
+    e = engine(visits=16, ponder=True, ponder_max=10 ** 9)
+    ok(e.handle("genmove b"))
+    e.start_ponder()
+    e.stop_ponder()                    # immediate stop leaves a consistent tree
+    ok(e.handle("play w pass"))
+    ok(e.handle("genmove b"))
+    plain = engine(visits=16)
+    ok(plain.handle("genmove b"))
+    assert not plain.ponder_pending
+    plain.start_ponder()               # no-op when pondering is off
+    assert plain._ponder is None
+
+
+def test_resign_needs_several_low_moves_in_a_row():
+    e = engine(n=9, visits=8, resign=0.5, resign_moves=3)   # uniform evaluator: q ~ 0 < 0.5 on every move
+    pts = [f"{c}{r}" for r in (1, 3, 5, 7, 9) for c in "ACEGJ"][:20]
+    for i, p in enumerate(pts):
+        ok(e.handle(f"play {'bw'[i % 2]} {p}"))
+    assert ok(e.handle("genmove b")) != "resign"
+    assert ok(e.handle("genmove w")) != "resign"
+    assert ok(e.handle("genmove b")) == "resign"
+    e2 = engine(n=9, visits=8, resign=-2.0)                   # q never below -2: never resigns
+    for i, p in enumerate(pts):
+        ok(e2.handle(f"play {'bw'[i % 2]} {p}"))
+    assert all(ok(e2.handle(f"genmove {c}")) != "resign" for c in "bwbw")

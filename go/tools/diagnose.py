@@ -111,7 +111,7 @@ def tactics_report(ev, n, visits_list=(1, 32, 200)):
     if n != 9:
         print("[tactics] suite is 9x9 only")
         return
-    mcts = BatchedMCTS(MCTSConfig(dirichlet_eps=0.0), np.random.default_rng(0))
+    mcts = BatchedMCTS(MCTSConfig(dirichlet_eps=0.0, symmetry_prune=False), np.random.default_rng(0))
     score = {v: 0 for v in ("policy",) + tuple(visits_list)}
     total = 0
     for name, black, white, tp, good, note in TACTICS_9:
@@ -175,7 +175,7 @@ def _check_libs(s, white, libs, n):
 def life_death_report(ev, n, visits_list=(1, 64, 400)):
     if n != 9:
         return
-    mcts = BatchedMCTS(MCTSConfig(dirichlet_eps=0.0), np.random.default_rng(0))
+    mcts = BatchedMCTS(MCTSConfig(dirichlet_eps=0.0, symmetry_prune=False), np.random.default_rng(0))
     score = {v: 0 for v in ("policy",) + tuple(visits_list)}
     for name, black, white, libs, tp, good in LIFE_DEATH_9:
         s = build(n, black, white, tp)
@@ -227,7 +227,7 @@ def problems_report(ev, folder, max_visits=12800, seeds=3):
     cps = [100]
     while cps[-1] * 2 <= max_visits:
         cps.append(cps[-1] * 2)
-    cfg = MCTSConfig(dirichlet_eps=0.0)
+    cfg = MCTSConfig(dirichlet_eps=0.0, symmetry_prune=False)
     runs = max(seeds, 1)
     solved = {c: 0.0 for c in ["policy"] + cps}
     total = 0
