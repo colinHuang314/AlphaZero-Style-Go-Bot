@@ -40,17 +40,17 @@ In the original version: temperature-schedule bugs, and eye-filling and self-ata
 I wrote the original Go engine myself from the AlphaGo Zero paper (see the early commit history). The improved version was built with AI-assisted development (Claude): I designed the architecture, training pipeline and experiments, chose what to test next from the results, and debugged and evaluated the models.
 
 ## Try it
-Weights: [Releases](https://github.com/colinHuang314/AlphaZero-Style-Go-Bot/releases)
+Weights: [v2.0](https://github.com/colinHuang314/AlphaZero-Style-Go-Bot/releases/tag/v2.0) has the final 20-block net (`go-zero-9x9-E_c2600.pt`, CGOS ≈2854); [v1.0](https://github.com/colinHuang314/AlphaZero-Style-Go-Bot/releases/tag/v1.0) the earlier 10-block one.
 
 ```bash
 pip install -r requirements.txt
 
 # browser UI at http://localhost:8765
 cd go
-python -m gozero.ui.server --model path/to/go-zero-9x9-c439.pt
+python -m gozero.ui.server --model path/to/go-zero-9x9-E_c2600.pt
 
 # play over GTP with the CGOS settings
-python -m gozero.gtp --model path/to/model.pt --visits 50000 --time-manage --tm-use 0.85 --komi-fix --ponder --resign -0.97
+python -m gozero.gtp --model path/to/go-zero-9x9-E_c2600.pt --visits 50000 --time-manage --tm-use 0.85 --komi-fix --ponder --resign -0.97
 ```
 
 More in [go/README.md](go/README.md).
